@@ -5,10 +5,10 @@
   "session": {
     "id": "ses_e60477afeffeglP1nmaw6Jrfas",
     "startedAt": "2026-11-03T04:43:52Z",
-    "capturedAt": "2026-11-03T05:12:33Z",
-    "elapsedSeconds": 1713,
-    "elapsed": "28m 33s",
-    "note": "Wall-clock time from the OpenCode session's creation to the capture that produced this file: a complete game (engine, renderer, academy, audio, persistence), repository, verification suite and release documentation. Deployment fields are updated after the GitHub Pages check."
+    "capturedAt": "2026-11-03T05:16:13Z",
+    "elapsedSeconds": 1941,
+    "elapsed": "32m 21s",
+    "note": "Wall-clock time from the OpenCode session's creation to the capture that produced this file, taken after the live GitHub Pages deployment was verified. The 54-check headless browser pass was then re-run against the deployed URL. The game, engine, academy, audio, persistence layer, repository, verification suite and documentation were all built inside this window."
   },
   "model": {
     "name": "DeepSeek V4.1 Flash",
@@ -16,22 +16,26 @@
     "provider": "opencode-go"
   },
   "usage": {
-    "inputTokens": 237005,
-    "outputTokens": 105329,
-    "reasoningTokens": 80362,
-    "cacheReadTokens": 13094912,
+    "inputTokens": 254849,
+    "outputTokens": 113695,
+    "reasoningTokens": 84126,
+    "cacheReadTokens": 16822016,
     "cacheWriteTokens": 1379,
-    "totalTokens": 13518987,
+    "totalTokens": 17276065,
     "costUSD": 0.0,
     "note": "Read from the OpenCode session database (session_v2) at capture time. totalTokens sums all five counters; cache reads are repeated prompt context and dominate the figure. costUSD is 0 on the flat-rate plan."
   },
   "artifacts": {
-    "sourceFiles": ["index.html", "style.css", "script.js"],
+    "sourceFiles": [
+      "index.html",
+      "style.css",
+      "script.js"
+    ],
     "lineCounts": {
-      "index.html": 516,
+      "index.html": 522,
       "style.css": 1301,
-      "script.js": 3717,
-      "total": 5534
+      "script.js": 3719,
+      "total": 5542
     },
     "supportingFiles": [
       "README.md",
@@ -78,7 +82,8 @@
       "Browser: blunder guard explanation and undo, castling king/rook meshes, checkmate end modal",
       "Browser: reload restores the saved game, 390 x 844 has no horizontal overflow"
     ],
-    "consoleErrors": 0
+    "consoleErrors": 0,
+    "browserChecksLive": 54
   },
   "deployment": {
     "repository": "https://github.com/somphol/full-3d-chess-academy",
@@ -86,8 +91,9 @@
     "host": "GitHub Pages",
     "branch": "main",
     "path": "/",
-    "verifiedAt": null,
-    "status": "pending"
+    "verifiedAt": "2026-11-03T05:16:13Z",
+    "status": "live",
+    "note": "Pages built from main / root; index, stylesheet, module and social image returned HTTP 200. The full browser suite passed against the live URL."
   },
   "credits": {
     "tool": "OpenCode",

@@ -112,6 +112,10 @@ Built with [Three.js](https://threejs.org) and vanilla HTML, CSS and JavaScript 
 
 The visual language is original to this project. The chess engine, bilingual curriculum, drills, sound design and interface were written for this studio.
 
+## Build provenance
+
+Version 1.0.0 was built in a single OpenCode session on 2–3 November 2026: **32m 21s** wall clock from session creation to verified deployment, on **DeepSeek V4.1 Flash**. The session used **17.28M tokens** in total, of which 16.82M were repeated prompt cache reads. Line counts, checks, model, timestamps and deployment details are recorded in [state.json](state.json).
+
 ## License
 
 MIT — see [LICENSE](LICENSE). Three.js is MIT licensed; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
