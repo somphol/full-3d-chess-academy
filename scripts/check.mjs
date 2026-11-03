@@ -130,6 +130,35 @@ s = E.createState('4k3/8/8/8/8/8/8/4K2R w K - 0 1');
 const rookMove = findMove(s, 'h1', 'h8');
 check('rook to the eighth rank gives check', E.moveToSAN(s, rookMove).endsWith('+'), E.moveToSAN(s, rookMove));
 
+section('Bot · search and safety');
+let aiState = E.createState('6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1');
+let aiResult = E.chooseBotMove(aiState, 'club', () => 1);
+check('bot finds the back-rank mate', !!aiResult.move && E.sqName(aiResult.move.from) + E.sqName(aiResult.move.to) === 'a1a8',
+  aiResult.move ? E.sqName(aiResult.move.from) + E.sqName(aiResult.move.to) : 'none');
+check('bot scores the mate as decisive', aiResult.score > 90000, String(aiResult.score));
+
+aiState = E.createState('4k3/8/8/8/8/8/4r3/3K3R w - - 0 1');
+aiResult = E.chooseBotMove(aiState, 'club', () => 1);
+check('bot takes a free rook', !!aiResult.move && E.sqName(aiResult.move.from) + E.sqName(aiResult.move.to) === 'd1e2',
+  aiResult.move ? E.sqName(aiResult.move.from) + E.sqName(aiResult.move.to) : 'none');
+
+const aiStart = E.createState();
+const aiFenBefore = E.toFEN(aiStart);
+let aiLegal = true;
+for (const level of ['easy', 'club', 'strong']) {
+  const result = E.chooseBotMove(aiStart, level, () => 1);
+  if (!result.move) { aiLegal = false; continue; }
+  const legal = E.legalMoves(aiStart).some((m) => m.from === result.move.from && m.to === result.move.to && m.promo === result.move.promo);
+  if (!legal) aiLegal = false;
+}
+check('every level returns a legal move', aiLegal);
+check('bot search leaves the position untouched', E.toFEN(aiStart) === aiFenBefore);
+
+const timed = Date.now();
+const strongResult = E.chooseBotMove(E.createState('r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4'), 'strong', () => 1);
+check('strong search stays inside its time budget', Date.now() - timed < 5000, String(Date.now() - timed) + 'ms');
+check('strong search reports depth and nodes', strongResult.depth >= 2 && strongResult.nodes > 0, JSON.stringify({ depth: strongResult.depth, nodes: strongResult.nodes }));
+
 /* --------------------------------------------------------------------- UI */
 
 section('Interface · translations');

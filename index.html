@@ -4,11 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Full 3D Chess Academy &amp; Studio</title>
-  <meta name="description" content="A bilingual 3D chess academy and studio: play standard chess in a rotatable WebGL studio, inspect pieces, drill puzzles and learn with a real-time coach. No backend, no tracking." />
+  <meta name="description" content="A bilingual 3D chess academy and studio: play standard chess against a built-in bot or a friend, inspect pieces, drill puzzles and learn with a real-time coach. No backend, no tracking." />
   <meta name="theme-color" content="#0b0e14" />
   <meta name="color-scheme" content="dark" />
   <meta property="og:title" content="Full 3D Chess Academy &amp; Studio" />
-  <meta property="og:description" content="Play and learn standard chess in a fully 3D, bilingual academy studio. Vanilla JS + Three.js, deployable to GitHub Pages." />
+  <meta property="og:description" content="Play and learn standard chess in a fully 3D, bilingual academy studio. Play the bot, inspect pieces, drill tactics. Vanilla JS + Three.js." />
   <meta property="og:type" content="website" />
   <meta property="og:image" content="assets/og-card.png" />
   <meta property="og:url" content="https://somphol.github.io/full-3d-chess-academy/" />
@@ -28,7 +28,7 @@
     }
   </script>
 </head>
-<body>
+<body class="hide-alt-tips">
   <svg class="sprite" aria-hidden="true" focusable="false">
     <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 7H5v-4M5.6 7.2A8 8 0 1 1 4 14" /></symbol>
     <symbol id="i-reset" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" /></symbol>
@@ -65,7 +65,7 @@
       </div>
 
       <div class="topbar-actions">
-        <div class="lang-switch" role="group" aria-label="Language / ภาษา">
+        <div class="lang-switch" role="group" aria-label="Language">
           <button type="button" class="lang-btn" data-lang="en">EN</button>
           <button type="button" class="lang-btn" data-lang="th">TH</button>
         </div>
@@ -133,7 +133,7 @@
                   <span class="switch-title" data-i18n="coach.tipsTitle">Bilingual tips</span>
                   <span class="switch-sub" data-i18n="coach.tipsSub">Show the second language under each tip.</span>
                 </span>
-                <input type="checkbox" id="toggle-tips" class="switch" checked />
+                <input type="checkbox" id="toggle-tips" class="switch" />
               </label>
             </div>
           </section>
@@ -210,6 +210,7 @@
             <span class="badge" id="stage-mode" data-i18n="stage.play">Play mode</span>
             <span class="badge badge-quiet" id="stage-turn">White to move</span>
             <span class="badge badge-warn" id="stage-check" hidden data-i18n="stage.check">Check</span>
+            <span class="badge badge-live" id="stage-bot" hidden data-i18n="bot.thinking">Bot is thinking…</span>
           </div>
           <div class="stage-corner">
             <button type="button" class="chip-btn" id="btn-cam-cycle" title="Cycle camera">
@@ -300,6 +301,32 @@
           <p class="match-reason" id="match-reason" hidden></p>
         </div>
 
+        <div class="card opponent-card">
+          <div class="card-head">
+            <h2 data-i18n="bot.title">Opponent</h2>
+            <span class="badge badge-quiet" id="bot-badge">Two players</span>
+          </div>
+          <div class="cam-grid" id="opponent-mode" role="group" aria-label="Opponent">
+            <button type="button" class="seg-btn is-active" data-opponent="human" aria-pressed="true" data-i18n="bot.human">Two players</button>
+            <button type="button" class="seg-btn" data-opponent="bot" aria-pressed="false" data-i18n="bot.bot">The bot</button>
+          </div>
+          <div class="bot-settings" id="bot-settings" hidden>
+            <p class="mini-note bot-label" data-i18n="bot.playAs">Play as</p>
+            <div class="cam-grid" id="bot-side" role="group" aria-label="Side">
+              <button type="button" class="seg-btn is-active" data-side="w" aria-pressed="true" data-i18n="inspector.white">White</button>
+              <button type="button" class="seg-btn" data-side="b" aria-pressed="false" data-i18n="inspector.black">Black</button>
+            </div>
+            <p class="mini-note bot-label" data-i18n="bot.strength">Strength</p>
+            <div class="cam-grid cam-grid-3" id="bot-level" role="group" aria-label="Strength">
+              <button type="button" class="seg-btn" data-level="easy" aria-pressed="false" data-i18n="bot.easy">Casual</button>
+              <button type="button" class="seg-btn is-active" data-level="club" aria-pressed="true" data-i18n="bot.club">Club</button>
+              <button type="button" class="seg-btn" data-level="strong" aria-pressed="false" data-i18n="bot.strong">Sharp</button>
+            </div>
+            <button type="button" class="btn btn-soft bot-start" id="btn-bot-start"><span data-i18n="bot.start">Start vs bot</span></button>
+            <p class="mini-note bot-note" id="bot-note">You are White · Club bot</p>
+          </div>
+        </div>
+
         <div class="card camera-card">
           <div class="card-head"><h2 data-i18n="camera.title">Camera</h2></div>
           <div class="cam-grid">
@@ -348,7 +375,7 @@
 
     <footer class="footbar">
       <p><span data-i18n="footer.built">Built with</span> <a href="https://threejs.org" target="_blank" rel="noopener">Three.js</a> <span data-i18n="footer.and">and vanilla JavaScript</span> · <a href="https://opencode.ai" target="_blank" rel="noopener">OpenCode</a> · <span id="footer-model">DeepSeek V4.1 Flash</span></p>
-      <p class="foot-version">v1.0.0 · <span data-i18n="footer.license">MIT licensed</span></p>
+      <p class="foot-version">v1.1.0 · <span data-i18n="footer.license">MIT licensed</span></p>
     </footer>
   </div>
 
@@ -451,6 +478,10 @@
         <div>
           <h3 data-i18n="help.keysTitle">Keys</h3>
           <p data-i18n="help.keysBody">U undo · N new game · I inspect lens · L language · 1/2/3 camera · Esc deselect.</p>
+        </div>
+        <div>
+          <h3 data-i18n="help.botTitle">Play the bot</h3>
+          <p data-i18n="help.botBody">Choose The bot, pick a side and a strength. The bot thinks briefly, then replies. Undo takes back both its reply and your move.</p>
         </div>
         <div>
           <h3 data-i18n="help.dataTitle">Your data</h3>

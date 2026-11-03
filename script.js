@@ -308,7 +308,7 @@ function revokeRights(state, sq) {
   else if (sq === 63) state.castling.k = false;
 }
 
-function applyMove(state, move) {
+function applyMove(state, move, trackPositions = true) {
   const b = state.board;
   const piece = b[move.from];
   if (!piece) throw new Error('Illegal move: no piece on ' + sqName(move.from));
@@ -364,14 +364,14 @@ function applyMove(state, move) {
   if (piece.color === 'b') state.full += 1;
   state.turn = otherColor(piece.color);
   state.history.push(undo);
-  state.positions.push(positionKey(state));
+  if (trackPositions) state.positions.push(positionKey(state));
   return undo;
 }
 
-function undoMove(state) {
+function undoMove(state, trackPositions = true) {
   const undo = state.history.pop();
   if (!undo) return null;
-  state.positions.pop();
+  if (trackPositions) state.positions.pop();
   const b = state.board;
   const { move } = undo;
 
@@ -397,10 +397,10 @@ function legalMoves(state, color = state.turn) {
   const out = [];
   const enemy = otherColor(color);
   for (const move of genMoves(state, color)) {
-    applyMove(state, move);
+    applyMove(state, move, false);
     const king = findKing(state.board, color);
     const safe = king >= 0 && !isAttacked(state.board, king, enemy);
-    undoMove(state);
+    undoMove(state, false);
     if (safe) out.push(move);
   }
   return out;
@@ -467,11 +467,11 @@ function moveToSAN(state, move) {
     base = piece.type + dis + (move.captured ? 'x' : '') + sqName(move.to);
   }
 
-  applyMove(state, move);
+  applyMove(state, move, false);
   const opp = state.turn;
   const givesCheck = inCheck(state, opp);
   const replies = givesCheck ? legalMoves(state, opp) : [];
-  undoMove(state);
+  undoMove(state, false);
   if (givesCheck) base += replies.length === 0 ? '#' : '+';
   return base;
 }
@@ -482,11 +482,249 @@ function perft(state, depth) {
   if (depth === 1) return moves.length;
   let nodes = 0;
   for (const m of moves) {
-    applyMove(state, m);
+    applyMove(state, m, false);
     nodes += perft(state, depth - 1);
-    undoMove(state);
+    undoMove(state, false);
   }
   return nodes;
+}
+
+/* ------------------------------------------------------------------ AI ---- */
+const AI_TIMEOUT = { timeout: true };
+const AI_LEVELS = {
+  easy: { depth: 1, timeMs: 320, random: 0.42, qdepth: 2, key: 'bot.easy' },
+  club: { depth: 3, timeMs: 900, random: 0.04, qdepth: 3, key: 'bot.club' },
+  strong: { depth: 4, timeMs: 1400, random: 0.0, qdepth: 3, key: 'bot.strong' },
+};
+const AI_MATE = 100000;
+const AI_NOW = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+let aiNodes = 0;
+
+/* Piece-square tables, a1..h8, White's point of view (centipawns). */
+const PST = {
+  P: [
+    0, 0, 0, 0, 0, 0, 0, 0,
+    5, 10, 10, -20, -20, 10, 10, 5,
+    5, -5, -10, 0, 0, -10, -5, 5,
+    0, 0, 0, 20, 20, 0, 0, 0,
+    5, 5, 10, 25, 25, 10, 5, 5,
+    10, 10, 20, 30, 30, 20, 10, 10,
+    50, 50, 50, 50, 50, 50, 50, 50,
+    0, 0, 0, 0, 0, 0, 0, 0,
+  ],
+  N: [
+    -50, -40, -30, -30, -30, -30, -40, -50,
+    -40, -20, 0, 5, 5, 0, -20, -40,
+    -30, 5, 10, 15, 15, 10, 5, -30,
+    -30, 0, 15, 20, 20, 15, 0, -30,
+    -30, 5, 15, 20, 20, 15, 5, -30,
+    -30, 0, 10, 15, 15, 10, 0, -30,
+    -40, -20, 0, 0, 0, 0, -20, -40,
+    -50, -40, -30, -30, -30, -30, -40, -50,
+  ],
+  B: [
+    -20, -10, -10, -10, -10, -10, -10, -20,
+    -10, 5, 0, 0, 0, 0, 5, -10,
+    -10, 10, 10, 10, 10, 10, 10, -10,
+    -10, 0, 10, 10, 10, 10, 0, -10,
+    -10, 5, 5, 10, 10, 5, 5, -10,
+    -10, 0, 5, 10, 10, 5, 0, -10,
+    -10, 0, 0, 0, 0, 0, 0, -10,
+    -20, -10, -10, -10, -10, -10, -10, -20,
+  ],
+  R: [
+    0, 0, 0, 5, 5, 0, 0, 0,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    5, 10, 10, 10, 10, 10, 10, 5,
+    0, 0, 0, 0, 0, 0, 0, 0,
+  ],
+  Q: [
+    -20, -10, -10, -5, -5, -10, -10, -20,
+    -10, 0, 5, 0, 0, 0, 0, -10,
+    -10, 5, 5, 5, 5, 5, 0, -10,
+    0, 0, 5, 5, 5, 5, 0, -5,
+    -5, 0, 5, 5, 5, 5, 0, -5,
+    -10, 0, 5, 5, 5, 5, 0, -10,
+    -10, 0, 0, 0, 0, 0, 0, -10,
+    -20, -10, -10, -5, -5, -10, -10, -20,
+  ],
+  K: [
+    20, 30, 10, 0, 0, 10, 30, 20,
+    20, 20, 0, 0, 0, 0, 20, 20,
+    -10, -20, -20, -20, -20, -20, -20, -10,
+    -20, -30, -30, -40, -40, -30, -30, -20,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+  ],
+  K_END: [
+    -50, -30, -30, -30, -30, -30, -30, -50,
+    -30, -30, 0, 0, 0, 0, -30, -30,
+    -30, -10, 20, 30, 30, 20, -10, -30,
+    -30, -10, 30, 40, 40, 30, -10, -30,
+    -30, -10, 30, 40, 40, 30, -10, -30,
+    -30, -10, 20, 30, 30, 20, -10, -30,
+    -30, -20, -10, 0, 0, -10, -20, -30,
+    -50, -40, -30, -20, -20, -30, -40, -50,
+  ],
+};
+
+function evaluateBoard(state) {
+  let heavy = 0;
+  for (let i = 0; i < 64; i++) {
+    const p = state.board[i];
+    if (p && p.type !== 'K' && p.type !== 'P') heavy += PIECE_VALUE[p.type];
+  }
+  let score = 0;
+  let wBishops = 0;
+  let bBishops = 0;
+  for (let i = 0; i < 64; i++) {
+    const p = state.board[i];
+    if (!p) continue;
+    if (p.type === 'B') {
+      if (p.color === 'w') wBishops++;
+      else bBishops++;
+    }
+    const table = p.type === 'K' && heavy < 12 ? PST.K_END : PST[p.type];
+    const idx = p.color === 'w' ? i : (i ^ 56);
+    const value = (p.type === 'K' ? 0 : PIECE_VALUE[p.type] * 100) + table[idx];
+    score += p.color === 'w' ? value : -value;
+  }
+  if (wBishops >= 2) score += 28;
+  if (bBishops >= 2) score -= 28;
+  return state.turn === 'w' ? score : -score;
+}
+
+function orderMoves(moves) {
+  for (const m of moves) {
+    let s = 0;
+    if (m.captured) s += 900 + PIECE_VALUE[m.captured] * 100 - PIECE_VALUE[m.piece] * 8;
+    if (m.promo) s += 800 + PIECE_VALUE[m.promo] * 100;
+    if (m.castle) s += 55;
+    const f = m.to & 7;
+    const r = m.to >> 3;
+    s += (3.5 - Math.abs(f - 3.5)) * 3 + (3.5 - Math.abs(r - 3.5)) * 3;
+    m.aiScore = s;
+  }
+  moves.sort((a, b) => b.aiScore - a.aiScore);
+  return moves;
+}
+
+function aiQuiesce(state, alpha, beta, deadline, ply, qdepth) {
+  aiNodes++;
+  if ((aiNodes & 511) === 0 && AI_NOW() > deadline) throw AI_TIMEOUT;
+
+  const checked = inCheck(state, state.turn);
+  const all = legalMoves(state);
+  if (!all.length) return checked ? -AI_MATE + ply : 0;
+  if (qdepth <= 0) return evaluateBoard(state);
+
+  if (!checked) {
+    const stand = evaluateBoard(state);
+    if (stand >= beta) return beta;
+    if (stand > alpha) alpha = stand;
+  }
+
+  const moves = checked ? all : all.filter((m) => m.captured || m.promo);
+  orderMoves(moves);
+  for (const m of moves) {
+    applyMove(state, m, false);
+    const score = -aiQuiesce(state, -beta, -alpha, deadline, ply + 1, qdepth - 1);
+    undoMove(state, false);
+    if (score >= beta) return beta;
+    if (score > alpha) alpha = score;
+  }
+  return alpha;
+}
+
+function aiSearch(state, depth, alpha, beta, deadline, ply) {
+  aiNodes++;
+  if ((aiNodes & 511) === 0 && AI_NOW() > deadline) throw AI_TIMEOUT;
+
+  if (depth <= 0) return aiQuiesce(state, alpha, beta, deadline, ply, 3);
+
+  const moves = orderMoves(legalMoves(state));
+  if (!moves.length) return inCheck(state, state.turn) ? -AI_MATE + ply : 0;
+
+  let best = -Infinity;
+  for (const m of moves) {
+    applyMove(state, m, false);
+    const score = -aiSearch(state, depth - 1, -beta, -alpha, deadline, ply + 1);
+    undoMove(state, false);
+    if (score > best) best = score;
+    if (best > alpha) alpha = best;
+    if (alpha >= beta) break;
+  }
+  return best;
+}
+
+function aiRoot(state, depth, deadline, previousBest) {
+  const moves = orderMoves(legalMoves(state));
+  if (!moves.length) return null;
+  if (previousBest) {
+    const i = moves.findIndex((m) => m.from === previousBest.from && m.to === previousBest.to && m.promo === previousBest.promo);
+    if (i > 0) moves.unshift(moves.splice(i, 1)[0]);
+  }
+  let alpha = -Infinity;
+  let bestScore = -Infinity;
+  let best = moves[0];
+  for (const m of moves) {
+    applyMove(state, m, false);
+    const score = -aiSearch(state, depth - 1, -Infinity, -alpha, deadline, 1);
+    undoMove(state, false);
+    if (score > bestScore) {
+      bestScore = score;
+      best = m;
+    }
+    if (score > alpha) alpha = score;
+  }
+  return { move: best, score: bestScore, depth };
+}
+
+function chooseBotMove(state, level = 'club', rng = Math.random) {
+  const cfg = AI_LEVELS[level] || AI_LEVELS.club;
+  const legal = legalMoves(state);
+  if (!legal.length) {
+    return { move: null, score: 0, depth: 0, nodes: 0, elapsedMs: 0, level, random: false };
+  }
+
+  const started = AI_NOW();
+  if (rng() < cfg.random) {
+    const index = Math.floor(rng() * legal.length) % legal.length;
+    return {
+      move: legal[index], score: 0, depth: 0, nodes: 0,
+      elapsedMs: AI_NOW() - started, level, random: true,
+    };
+  }
+
+  aiNodes = 0;
+  const deadline = started + cfg.timeMs;
+  let best = null;
+  try {
+    for (let d = 1; d <= cfg.depth; d++) {
+      const result = aiRoot(state, d, deadline, best ? best.move : null);
+      if (result) best = result;
+      if (AI_NOW() > deadline) break;
+    }
+  } catch (err) {
+    if (err !== AI_TIMEOUT) throw err;
+  }
+
+  if (!best) {
+    best = { move: orderMoves(legal)[0], score: 0, depth: 0 };
+  }
+  return {
+    ...best,
+    nodes: aiNodes,
+    elapsedMs: Math.round(AI_NOW() - started),
+    level,
+    random: false,
+  };
 }
 
 const ENGINE_API = {
@@ -494,6 +732,7 @@ const ENGINE_API = {
   sqName, nameToSq, parseFEN, createState, positionKey, toFEN, castlingString,
   findKing, isAttacked, inCheck, genMoves, legalMoves, applyMove, undoMove,
   gameStatus, moveToSAN, perft, insufficientMaterial,
+  AI_LEVELS, PST, evaluateBoard, chooseBotMove,
 };
 /* ENGINE:END */
 
@@ -510,7 +749,8 @@ const I18N = {
     'coach.checks': 'What to check now', 'coach.lesson': 'Current lesson', 'coach.guard': 'Blunder guard',
     'coach.guardTitle': 'Warn me before a blunder',
     'coach.guardSub': 'Offers Undo & Learn after a hanging piece or mate-in-one.',
-    'coach.tipsTitle': 'Bilingual tips', 'coach.tipsSub': 'Show the second language under each tip.',
+    'coach.tipsTitle': 'Show the other language',
+    'coach.tipsSub': 'Adds a second-language line under coach tips and dialogs. Off means only the selected language is shown.',
     'puzzle.training': 'Tactical drills', 'puzzle.solvedLabel': 'solved', 'puzzle.streak': 'Streak',
     'puzzle.best': 'Best', 'puzzle.hint': 'Hint', 'puzzle.retry': 'Reset drill', 'puzzle.exit': 'Exit drill',
     'puzzle.pick': 'Pick a drill to load it onto the 3D board.',
@@ -533,6 +773,24 @@ const I18N = {
     'match.title': 'The match', 'match.note': 'Standard international chess · two players, one screen',
     'match.material': 'Material', 'match.even': 'Even', 'match.whiteAhead': 'White ahead', 'match.blackAhead': 'Black ahead',
     'match.moveCount': '{n} moves',
+    'match.botNote': 'You are {side} · {level} bot',
+    'bot.title': 'Opponent', 'bot.human': 'Two players', 'bot.bot': 'The bot',
+    'bot.playAs': 'Play as', 'bot.strength': 'Strength',
+    'bot.easy': 'Casual', 'bot.club': 'Club', 'bot.strong': 'Sharp',
+    'bot.start': 'Start vs bot',
+    'bot.youAre': 'You are {side} · {level} bot',
+    'bot.hotseat': 'Two players share this screen.',
+    'bot.thinking': 'Bot is thinking…',
+    'bot.wait': 'The bot is thinking.',
+    'bot.on': 'Bot on. You are {side}.',
+    'bot.off': 'Bot off — both sides are yours.',
+    'bot.started': 'New game. You are {side} against the {level} bot.',
+    'bot.switchTitle': 'Play as {side}?',
+    'bot.switchBody': 'The current game will be cleared so you can start again as {side} against the bot.',
+    'bot.newTitle': 'Start a new game against the bot?',
+    'bot.newBody': 'The current game will be cleared. You will play {side} against the {level} bot.',
+    'bot.newYes': 'Yes, start vs bot',
+    'bot.moved': 'The bot played {move}.',
     'studio.title': 'Studio',
     'studio.note': 'A self-contained static app. Nothing is uploaded; exports are built locally.',
     'studio.pieces': 'Pieces', 'studio.squares': 'Squares', 'studio.puzzles': 'Drills',
@@ -566,6 +824,8 @@ const I18N = {
     'help.keysBody': 'U undo · N new game · I inspect lens · L language · 1/2/3 camera · Esc deselect.',
     'help.dataTitle': 'Your data',
     'help.dataBody': 'Games and streaks live in this browser’s localStorage only. Export PGN or JSON any time; nothing is sent anywhere.',
+    'help.botTitle': 'Play the bot',
+    'help.botBody': 'Choose The bot, pick a side and a strength. The bot thinks briefly, then replies. Undo takes back both its reply and your move.',
     'help.credit': 'Built with', 'help.creditTool': 'the OpenCode agent harness',
     'help.creditModel': 'and the DeepSeek V4.1 Flash model',
     'help.offline': 'Serving over HTTP is recommended. Three.js loads from jsDelivr, so the studio needs a connection the first time.',
@@ -622,7 +882,8 @@ const I18N = {
     'coach.checks': 'สิ่งที่ควรตรวจตอนนี้', 'coach.lesson': 'บทเรียนปัจจุบัน', 'coach.guard': 'ตัวช่วยกันพลาด',
     'coach.guardTitle': 'เตือนก่อนเดินพลาด',
     'coach.guardSub': 'เสนอการย้อนและเรียนรู้ เมื่อหมากถูกกินฟรีหรือถูกจู่โจมจน',
-    'coach.tipsTitle': 'คำแนะนำสองภาษา', 'coach.tipsSub': 'แสดงอีกภาษาหนึ่งใต้คำแนะนำ',
+    'coach.tipsTitle': 'แสดงอีกภาษาหนึ่ง',
+    'coach.tipsSub': 'เพิ่มบรรทัดภาษาอีกภาษาหนึ่งใต้คำแนะนำและในกล่องข้อความ ปิดไว้จะแสดงเฉพาะภาษาที่เลือก',
     'puzzle.training': 'แบบฝึกแท็กติก', 'puzzle.solvedLabel': 'แก้แล้ว', 'puzzle.streak': 'ต่อเนื่อง',
     'puzzle.best': 'สูงสุด', 'puzzle.hint': 'คำใบ้', 'puzzle.retry': 'เริ่มโจทย์ใหม่', 'puzzle.exit': 'ออกจากโจทย์',
     'puzzle.pick': 'เลือกโจทย์เพื่อโหลดลงกระดาน 3 มิติ',
@@ -645,6 +906,24 @@ const I18N = {
     'match.title': 'การแข่งขัน', 'match.note': 'หมากรุกสากลมาตรฐาน · สองผู้เล่น หนึ่งหน้าจอ',
     'match.material': 'กำลังหมาก', 'match.even': 'เท่ากัน', 'match.whiteAhead': 'ขาวนำ', 'match.blackAhead': 'ดำนำ',
     'match.moveCount': '{n} ตา',
+    'match.botNote': 'คุณคือ {side} · บอท{level}',
+    'bot.title': 'คู่ต่อสู้', 'bot.human': 'สองผู้เล่น', 'bot.bot': 'บอท',
+    'bot.playAs': 'เล่นเป็น', 'bot.strength': 'ระดับความแข็งแกร่ง',
+    'bot.easy': 'ผ่อนคลาย', 'bot.club': 'คลับ', 'bot.strong': 'เฉียบคม',
+    'bot.start': 'เริ่มเล่นกับบอท',
+    'bot.youAre': 'คุณคือ {side} · บอท{level}',
+    'bot.hotseat': 'สองผู้เล่นใช้หน้าจอเดียวกัน',
+    'bot.thinking': 'บอทกำลังคิด…',
+    'bot.wait': 'บอทกำลังคิด',
+    'bot.on': 'เปิดบอทแล้ว คุณคือ {side}',
+    'bot.off': 'ปิดบอทแล้ว ทั้งสองฝ่ายเป็นของคุณ',
+    'bot.started': 'เกมใหม่ คุณคือ {side} พบกับบอท{level}',
+    'bot.switchTitle': 'เล่นเป็น{side}หรือไม่?',
+    'bot.switchBody': 'เกมปัจจุบันจะถูกล้างเพื่อเริ่มใหม่เป็น{side}กับบอท',
+    'bot.newTitle': 'เริ่มเกมใหม่กับบอทหรือไม่?',
+    'bot.newBody': 'เกมปัจจุบันจะถูกล้าง คุณจะเล่นเป็น{side}กับบอท{level}',
+    'bot.newYes': 'ใช่ เริ่มกับบอท',
+    'bot.moved': 'บอทเดิน {move}',
     'studio.title': 'สตูดิโอ',
     'studio.note': 'แอปสแตติกที่ทำงานในตัว ไม่มีการอัปโหลด ไฟล์ส่งออกสร้างในเครื่อง',
     'studio.pieces': 'หมาก', 'studio.squares': 'ช่อง', 'studio.puzzles': 'โจทย์',
@@ -678,6 +957,8 @@ const I18N = {
     'help.keysBody': 'U ย้อนกลับ · N เกมใหม่ · I โหมดตรวจดู · L ภาษา · 1/2/3 กล้อง · Esc ยกเลิก',
     'help.dataTitle': 'ข้อมูลของคุณ',
     'help.dataBody': 'เกมและสถิติอยู่ใน localStorage ของเบราว์เซอร์นี้เท่านั้น ส่งออก PGN หรือ JSON ได้ทุกเมื่อ ไม่มีข้อมูลส่งออกไปที่ใด',
+    'help.botTitle': 'เล่นกับบอท',
+    'help.botBody': 'เลือกบอท เลือกฝ่ายและระดับความแข็งแกร่ง บอทจะคิดครู่หนึ่งแล้วเดินตอบ ย้อนกลับจะย้อนทั้งตาเดินของบอทและของคุณ',
     'help.credit': 'สร้างด้วย', 'help.creditTool': 'เครื่องมือเอเจนต์ OpenCode',
     'help.creditModel': 'และโมเดล DeepSeek V4.1 Flash',
     'help.offline': 'แนะนำให้เปิดผ่าน HTTP เพราะ Three.js โหลดจาก jsDelivr ครั้งแรกจึงต้องมีการเชื่อมต่อ',
@@ -948,7 +1229,7 @@ function t(key, vars) {
 const UI = {
   lang: 'en',
   sound: true,
-  tips: true,
+  tips: false,
   guard: true,
   coords: true,
   motion: true,
@@ -963,6 +1244,13 @@ const UI = {
   gameOver: null,
   hint: null,
   hoverSquare: null,
+  vsBot: false,
+  botLevel: 'club',
+  humanColor: 'w',
+  botThinking: false,
+  botTimer: null,
+  botToken: 0,
+  confirmData: null,
   puzzle: {
     activeId: null,
     state: null,
@@ -2021,6 +2309,226 @@ function uciOf(move) {
   return sqName(move.from) + sqName(move.to) + (move.promo ? move.promo.toLowerCase() : '');
 }
 
+/* ----------------------------- opponent ---------------------------------- */
+
+function botColor() {
+  return UI.humanColor === 'w' ? 'b' : 'w';
+}
+
+function botLevelName() {
+  return t('bot.' + UI.botLevel);
+}
+
+function updateOpponentUI() {
+  const els = UI.els;
+  if (!els.botBadge) return;
+  els.botBadge.textContent = UI.vsBot ? botLevelName() : t('bot.human');
+  els.botBadge.classList.toggle('badge-good', UI.vsBot);
+  els.botBadge.classList.toggle('badge-quiet', !UI.vsBot);
+  els.botSettings.hidden = !UI.vsBot;
+  els.botNote.textContent = UI.vsBot
+    ? t('bot.youAre', { side: sideLabel(UI.humanColor), level: botLevelName() })
+    : t('bot.hotseat');
+
+  document.querySelectorAll('[data-opponent]').forEach((b) => {
+    const on = (b.dataset.opponent === 'bot') === UI.vsBot;
+    b.classList.toggle('is-active', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+  document.querySelectorAll('[data-side]').forEach((b) => {
+    const on = b.dataset.side === UI.humanColor;
+    b.classList.toggle('is-active', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+  document.querySelectorAll('[data-level]').forEach((b) => {
+    const on = b.dataset.level === UI.botLevel;
+    b.classList.toggle('is-active', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+
+  if (els.matchNote) {
+    els.matchNote.textContent = UI.vsBot
+      ? t('match.botNote', { side: sideLabel(UI.humanColor), level: botLevelName() })
+      : t('match.note');
+  }
+  if (els.stageBot) els.stageBot.hidden = !(UI.vsBot && UI.botThinking);
+}
+
+function setVsBot(enabled) {
+  if (UI.vsBot === enabled) {
+    updateOpponentUI();
+    return;
+  }
+  UI.vsBot = enabled;
+  UI.lastBlunder = null;
+  if (!enabled) cancelBot();
+  saveState();
+
+  if (UI.mode === 'puzzle') {
+    updateOpponentUI();
+    return;
+  }
+
+  if (enabled) {
+    if (game.status && game.status.over) {
+      startNewGame();
+      return;
+    }
+    toast(t('bot.on', { side: sideLabel(UI.humanColor) }));
+    updateOpponentUI();
+    updateStatusBar();
+    maybeBotTurn(700);
+  } else {
+    toast(t('bot.off'));
+    updateOpponentUI();
+    updateStatusBar();
+  }
+}
+
+function setHumanColor(color) {
+  const wanted = color === 'b' ? 'b' : 'w';
+  if (UI.humanColor === wanted) return;
+
+  if (UI.mode === 'puzzle') {
+    UI.humanColor = wanted;
+    updateOpponentUI();
+    saveState();
+    return;
+  }
+
+  if (!UI.vsBot) {
+    UI.humanColor = wanted;
+    updateOpponentUI();
+    saveState();
+    return;
+  }
+
+  if (game.state.history.length === 0) {
+    UI.humanColor = wanted;
+    startNewGame();
+    return;
+  }
+
+  showConfirm({
+    titleKey: 'bot.switchTitle',
+    bodyKey: 'bot.switchBody',
+    yesKey: 'confirm.yes',
+    vars: { sideColor: wanted },
+    onYes: () => {
+      UI.humanColor = wanted;
+      startNewGame();
+    },
+  });
+}
+
+function setBotLevel(level) {
+  if (!AI_LEVELS[level] || UI.botLevel === level) return;
+  UI.botLevel = level;
+  updateOpponentUI();
+  saveState();
+  if (UI.vsBot && UI.mode === 'play' && game.state.turn === botColor()) {
+    cancelBot();
+    maybeBotTurn(260);
+  }
+}
+
+function cancelBot() {
+  UI.botToken += 1;
+  UI.botThinking = false;
+  if (UI.botTimer) {
+    clearTimeout(UI.botTimer);
+    UI.botTimer = null;
+  }
+  if (UI.els.stageBot) UI.els.stageBot.hidden = true;
+}
+
+function canBotPlay() {
+  return UI.vsBot
+    && UI.mode === 'play'
+    && !UI.botThinking
+    && game.status
+    && !game.status.over
+    && game.state.turn === botColor();
+}
+
+function maybeBotTurn(delay = 450) {
+  if (UI.mode !== 'play' || !UI.vsBot) return;
+  if (!game.status) game.status = gameStatus(game.state);
+  if (game.status.over) return;
+  if (game.state.turn !== botColor()) return;
+  if (UI.botThinking) return;
+  if (anyModalOpen()) return;
+  scheduleBotTurn(delay);
+}
+
+function scheduleBotTurn(delay = 450) {
+  cancelBot();
+  if (!canBotPlay()) return;
+
+  UI.botThinking = true;
+  const token = ++UI.botToken;
+  updateStatusBar();
+  updateOpponentUI();
+
+  UI.botTimer = setTimeout(() => {
+    if (token !== UI.botToken) return;
+    requestAnimationFrame(() => {
+      if (token !== UI.botToken) return;
+      if (anyModalOpen()) {
+        UI.botThinking = false;
+        UI.botTimer = null;
+        updateStatusBar();
+        updateOpponentUI();
+        return;
+      }
+      let result = null;
+      try {
+        result = chooseBotMove(game.state, UI.botLevel);
+      } catch (err) {
+        console.error('The bot could not choose a move', err);
+      }
+      if (token !== UI.botToken) return;
+      UI.botThinking = false;
+      UI.botTimer = null;
+      updateStatusBar();
+      updateOpponentUI();
+      if (!result || !result.move) return;
+      commitGameMove(result.move, { byAI: true });
+    });
+  }, delay);
+}
+
+function undoVsBot() {
+  cancelBot();
+  const hasHumanMove = game.state.history.some((h) => h.move.color === UI.humanColor);
+  if (!hasHumanMove) {
+    toast(t('toast.undoNothing'), 'warn');
+    return;
+  }
+
+  let removed = 0;
+  while (game.state.history.length && removed < 4) {
+    const last = game.state.history[game.state.history.length - 1].move;
+    undoMove(game.state);
+    game.state.sanMoves.pop();
+    removed += 1;
+    if (last.color === UI.humanColor) break;
+  }
+
+  const prev = game.state.history[game.state.history.length - 1];
+  UI.lastMove = prev ? { from: prev.move.from, to: prev.move.to } : null;
+  UI.gameOver = null;
+  UI.lastBlunder = null;
+  UI.hint = null;
+  clearSelection({ silent: true });
+  game.status = gameStatus(game.state);
+  rebuildPieces();
+  refreshAll();
+  saveState();
+  Sound.play('lift');
+  toast(t('toast.undone'));
+}
+
 /* ----------------------------- threats ----------------------------------- */
 
 function detectThreats(state) {
@@ -2107,6 +2615,9 @@ function onSquareClick(square) {
   if (UI.lastBlunder && !UI.els.blunderModal.hidden) return;
   if (UI.mode === 'play' && game.status && game.status.over) {
     toast(t('toast.gameOver'), 'warn');
+    return;
+  }
+  if (UI.mode === 'play' && UI.vsBot && (UI.botThinking || game.state.turn === botColor())) {
     return;
   }
 
@@ -2201,7 +2712,8 @@ function animateMoveVisual(move) {
   }
 }
 
-function commitGameMove(move) {
+function commitGameMove(move, options = {}) {
+  const byAI = options.byAI === true;
   const state = game.state;
   const san = moveToSAN(state, move);
   UI.lastMove = { from: move.from, to: move.to };
@@ -2230,21 +2742,24 @@ function commitGameMove(move) {
     return;
   }
 
-  Sound.play(move.captureSound || (move.captured ? 'capture' : move.castle ? 'castle' : move.promo ? 'promote' : 'drop'));
+  Sound.play(move.captured ? 'capture' : move.castle ? 'castle' : move.promo ? 'promote' : 'drop');
 
   if (status.check) {
     Sound.play('check');
     toast(t('toast.check'), 'warn');
   }
 
-  if (UI.guard) evaluateBlunder();
+  let guarded = false;
+  if (!byAI && UI.guard) guarded = evaluateBlunder();
+  if (!byAI && !guarded) maybeBotTurn(560);
 }
 
 function evaluateBlunder() {
   const threats = threatsForKey(game.state);
-  if (!threats.mate && !(threats.best && threats.best.gain >= 3)) return;
+  if (!threats.mate && !(threats.best && threats.best.gain >= 3)) return false;
   UI.lastBlunder = threats;
   showBlunderModal(threats);
+  return true;
 }
 
 function blunderCopy(threats) {
@@ -2285,6 +2800,10 @@ function undoLast() {
     retryPuzzle();
     return;
   }
+  if (UI.vsBot) {
+    undoVsBot();
+    return;
+  }
   if (!game.state.history.length) {
     toast(t('toast.undoNothing'), 'warn');
     return;
@@ -2312,6 +2831,7 @@ function requestHint() {
   }
   const state = game.state;
   if (game.status && game.status.over) return;
+  if (UI.vsBot && (UI.botThinking || state.turn === botColor())) return;
   const threats = threatsForKey(state);
   let move = threats.mate || (threats.best && threats.best.gain > 0 ? threats.best.move : null);
 
@@ -2352,6 +2872,7 @@ function requestHint() {
 function loadPuzzle(id) {
   const puzzle = PUZZLES.find((p) => p.id === id);
   if (!puzzle) return;
+  cancelBot();
   let state;
   try {
     state = createState(puzzle.fen);
@@ -2460,6 +2981,7 @@ function exitPuzzle() {
   refreshAll();
   setCamera(UI.cameraPreset === 'top' ? 'top' : 'white');
   toast(t('toast.puzzleExit'));
+  if (UI.vsBot) maybeBotTurn(600);
 }
 
 function showPuzzleSolved(puzzle) {
@@ -2490,6 +3012,8 @@ function nextPuzzle() {
 /* ----------------------------- game lifecycle ---------------------------- */
 
 function startNewGame() {
+  cancelBot();
+  UI.confirmData = null;
   closeAllModals();
   game.state = createState();
   game.startFen = START_FEN;
@@ -2511,8 +3035,13 @@ function startNewGame() {
   rebuildPieces({ animate: true });
   refreshAll();
   saveState();
-  setCamera('white');
-  toast(t('toast.newGame'));
+  setCamera(UI.vsBot && UI.humanColor === 'b' ? 'black' : 'white');
+  if (UI.vsBot) {
+    toast(t('bot.started', { side: sideLabel(UI.humanColor), level: botLevelName() }));
+    maybeBotTurn(820);
+  } else {
+    toast(t('toast.newGame'));
+  }
 }
 
 function requestNewGame() {
@@ -2521,7 +3050,22 @@ function requestNewGame() {
     startNewGame();
     return;
   }
-  openModal('modal-confirm');
+  if (UI.vsBot) {
+    showConfirm({
+      titleKey: 'bot.newTitle',
+      bodyKey: 'bot.newBody',
+      yesKey: 'bot.newYes',
+      vars: { sideColor: UI.humanColor, levelKey: 'bot.' + UI.botLevel },
+      onYes: startNewGame,
+    });
+  } else {
+    showConfirm({
+      titleKey: 'confirm.title',
+      bodyKey: 'confirm.body',
+      yesKey: 'confirm.yes',
+      onYes: startNewGame,
+    });
+  }
 }
 
 /* ----------------------------- export ------------------------------------ */
@@ -2630,13 +3174,16 @@ function exportJSON() {
 
 function saveState() {
   Store.write({
-    v: 1,
+    v: 2,
     lang: UI.lang,
     sound: UI.sound,
     tips: UI.tips,
     guard: UI.guard,
     coords: UI.coords,
     motion: UI.motion,
+    vsBot: UI.vsBot,
+    botLevel: UI.botLevel,
+    humanColor: UI.humanColor,
     game: {
       startFen: game.startFen,
       moves: game.state.history.map((h) => uciOf(h.move)),
@@ -2694,7 +3241,12 @@ function cacheElements() {
     stageMode: $('stage-mode'),
     stageTurn: $('stage-turn'),
     stageCheck: $('stage-check'),
+    stageBot: $('stage-bot'),
     camLabel: $('cam-label'),
+    botBadge: $('bot-badge'),
+    botSettings: $('bot-settings'),
+    botNote: $('bot-note'),
+    matchNote: $('match-note'),
     inspector: $('inspector'),
     inspectorGlyph: $('inspector-glyph'),
     inspectorColor: $('inspector-color'),
@@ -2745,8 +3297,12 @@ function cacheElements() {
     puzzleModalTitle: $('puzzle-modal-title'),
     promotionModal: $('modal-promotion'),
     confirmModal: $('modal-confirm'),
+    confirmTitle: $('confirm-title'),
+    confirmBody: $('confirm-body'),
+    btnConfirmYes: $('btn-confirm-yes'),
     helpModal: $('modal-help'),
     btnUndo: $('btn-undo'),
+    btnHint: $('btn-hint'),
     btnInspect: $('btn-inspect'),
     btnSound: $('btn-sound'),
     soundUse: $('sound-use'),
@@ -2788,6 +3344,7 @@ function setLang(lang, { announce = false, persist = true } = {}) {
   if (UI.lastBlunder && !UI.els.blunderModal.hidden) showBlunderModal(UI.lastBlunder);
   if (UI.gameOver && !UI.els.gameoverModal.hidden) showGameOver(true);
   if (UI.puzzle.lastSolved && !UI.els.puzzleModal.hidden) showPuzzleSolved(UI.puzzle.lastSolved);
+  if (UI.confirmData && !UI.els.confirmModal.hidden) renderConfirm();
   if (persist) saveState();
   if (announce) {
     toast(UI.lang === 'th' ? 'เปลี่ยนภาษาเป็นไทยแล้ว' : 'Language set to English.');
@@ -2841,7 +3398,7 @@ function updateStatusBar() {
   const state = activeState();
   const status = UI.mode === 'puzzle' ? UI.puzzle.status : game.status;
   const isOver = UI.mode === 'play' && status && status.over;
-  const label = turnText();
+  const label = UI.vsBot && UI.botThinking ? t('bot.thinking') : turnText();
 
   UI.els.turnLabel.textContent = label;
   UI.els.stageTurn.textContent = label;
@@ -2854,6 +3411,7 @@ function updateStatusBar() {
   UI.els.statusChip.dataset.tone = isOver ? 'over' : status && status.check ? 'check' : UI.mode === 'puzzle' && UI.puzzle.noteKind === 'solved' ? 'live' : 'live';
 
   UI.els.stageCheck.hidden = !(status && status.check);
+  UI.els.stageBot.hidden = !(UI.vsBot && UI.botThinking);
 
   UI.els.matchMoves.textContent = t('match.moveCount', { n: state.sanMoves.length });
 
@@ -3178,6 +3736,8 @@ function updateButtons() {
   UI.els.btnUndo.disabled = noHistory;
   UI.els.btnSound.setAttribute('aria-pressed', String(UI.sound));
   UI.els.soundUse.setAttribute('href', UI.sound ? '#i-sound' : '#i-mute');
+  const botTurn = UI.vsBot && (UI.botThinking || game.state.turn === botColor());
+  if (UI.els.btnHint) UI.els.btnHint.disabled = botTurn || (game.status && game.status.over);
 }
 
 /* ----------------------------- puzzles UI -------------------------------- */
@@ -3262,6 +3822,29 @@ function updatePuzzleUI() {
 
 /* ----------------------------- modals ------------------------------------ */
 
+function showConfirm({ titleKey, bodyKey, yesKey, vars = {}, onYes }) {
+  UI.confirmData = { titleKey, bodyKey, yesKey, vars, onYes };
+  renderConfirm();
+  openModal('modal-confirm');
+}
+
+function renderConfirm() {
+  const d = UI.confirmData;
+  if (!d) return;
+  const vars = { ...d.vars };
+  if (vars.sideColor) {
+    vars.side = sideLabel(vars.sideColor);
+    delete vars.sideColor;
+  }
+  if (vars.levelKey) {
+    vars.level = t(vars.levelKey);
+    delete vars.levelKey;
+  }
+  UI.els.confirmTitle.textContent = t(d.titleKey, vars);
+  UI.els.confirmBody.textContent = t(d.bodyKey, vars);
+  UI.els.btnConfirmYes.textContent = t(d.yesKey || 'confirm.yes');
+}
+
 function openModal(id) {
   const modal = document.getElementById(id);
   if (!modal) return;
@@ -3274,6 +3857,7 @@ function closeModal(id) {
   const modal = document.getElementById(id);
   if (!modal) return;
   modal.hidden = true;
+  if (!anyModalOpen()) setTimeout(() => maybeBotTurn(300), 90);
 }
 
 function closeAllModals() {
@@ -3363,6 +3947,7 @@ function refreshAll() {
   updatePuzzleUI();
   updateModeUI();
   updateButtons();
+  updateOpponentUI();
   renderHighlights();
   labelsGroup.visible = UI.coords;
   document.body.classList.toggle('hide-alt-tips', !UI.tips);
@@ -3427,6 +4012,24 @@ function bindEvents() {
   UI.els.btnUndo.addEventListener('click', undoLast);
   UI.els.btnInspect.addEventListener('click', toggleInspectLens);
   document.getElementById('btn-hint').addEventListener('click', requestHint);
+
+  // Opponent
+  document.querySelectorAll('[data-opponent]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      Sound.play('lift');
+      setVsBot(btn.dataset.opponent === 'bot');
+    });
+  });
+  document.querySelectorAll('[data-side]').forEach((btn) => {
+    btn.addEventListener('click', () => setHumanColor(btn.dataset.side));
+  });
+  document.querySelectorAll('[data-level]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      setBotLevel(btn.dataset.level);
+      Sound.play('lift');
+    });
+  });
+  document.getElementById('btn-bot-start').addEventListener('click', requestNewGame);
 
   // Camera
   document.querySelectorAll('[data-cam]').forEach((btn) => {
@@ -3509,6 +4112,7 @@ function bindEvents() {
     UI.lastBlunder = null;
     toast(t('toast.blunderKept'), 'warn');
     updateCoach();
+    if (UI.vsBot) maybeBotTurn(320);
   });
 
   // Game over
@@ -3520,10 +4124,15 @@ function bindEvents() {
 
   // Confirm
   document.getElementById('btn-confirm-yes').addEventListener('click', () => {
+    const data = UI.confirmData;
+    UI.confirmData = null;
     closeModal('modal-confirm');
-    startNewGame();
+    if (data && typeof data.onYes === 'function') data.onYes();
   });
-  document.getElementById('btn-confirm-no').addEventListener('click', () => closeModal('modal-confirm'));
+  document.getElementById('btn-confirm-no').addEventListener('click', () => {
+    UI.confirmData = null;
+    closeModal('modal-confirm');
+  });
 
   // Inspector close
   document.getElementById('inspector-close').addEventListener('click', () => clearSelection());
@@ -3537,6 +4146,7 @@ function bindEvents() {
         renderHighlights();
       }
       if (modal.id === 'modal-blunder') UI.lastBlunder = null;
+      if (modal.id === 'modal-confirm') UI.confirmData = null;
       closeModal(modal.id);
     });
   });
@@ -3629,10 +4239,13 @@ function applyPreferences(saved) {
   if (!saved) return;
   UI.lang = saved.lang === 'th' ? 'th' : 'en';
   UI.sound = saved.sound !== false;
-  UI.tips = saved.tips !== false;
+  UI.tips = saved.v >= 2 && saved.tips === true;
   UI.guard = saved.guard !== false;
   UI.coords = saved.coords !== false;
   UI.motion = saved.motion !== false;
+  UI.vsBot = saved.vsBot === true;
+  UI.botLevel = ['easy', 'club', 'strong'].includes(saved.botLevel) ? saved.botLevel : 'club';
+  UI.humanColor = saved.humanColor === 'b' ? 'b' : 'w';
   Sound.enabled = UI.sound;
   if (saved.puzzles && Array.isArray(saved.puzzles.solved)) {
     UI.puzzle.solvedIds = saved.puzzles.solved.filter((id) => PUZZLES.some((p) => p.id === id));
@@ -3669,7 +4282,7 @@ function boot() {
   bindEvents();
   rebuildPieces({ animate: true });
   refreshAll();
-  setCamera('white', false);
+  setCamera(UI.vsBot && UI.humanColor === 'b' ? 'black' : 'white', false);
   resizeScene();
 
   UI.booted = true;
@@ -3680,6 +4293,9 @@ function boot() {
   setTimeout(() => {
     if (loading) loading.classList.add('is-gone');
     if (restored) toast(t('toast.restored'));
+    if (UI.vsBot && !game.status.over && game.state.turn === botColor()) {
+      setTimeout(() => maybeBotTurn(320), 700);
+    }
   }, 780);
 
   if (saved && saved.game && saved.game.moves && saved.game.moves.length && !restored) {

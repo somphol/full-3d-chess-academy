@@ -9,7 +9,8 @@ The studio is a static page. It has no account, no analytics, no cookies, no tra
 `localStorage['full3dChessAcademy.v1']` holds:
 
 - the current game as a starting FEN plus a list of UCI moves;
-- language, sound, tips, blunder-guard, coordinates and idle-motion preferences;
+- language, sound, second-language tips, blunder-guard, coordinates and idle-motion preferences;
+- opponent settings: whether the bot is on, its strength and your side;
 - puzzle progress: solved ids, current streak and best streak.
 
 No names, no email addresses, no device identifiers, no location. There are no timestamps of individual moves.
@@ -22,7 +23,7 @@ No names, no email addresses, no device identifiers, no location. There are no t
 
 ## Network
 
-On load, the module fetches Three.js and its three addons from `cdn.jsdelivr.net`. That request reveals your IP address to the CDN in the ordinary way, as any external script would. Nothing else leaves the page. There are no runtime API calls, no fonts, no images and no audio downloads.
+On load, the module fetches Three.js and its three addons from `cdn.jsdelivr.net`. That request reveals your IP address to the CDN in the ordinary way, as any external script would. Nothing else leaves the page. There are no runtime API calls, no fonts, no images and no audio downloads. The bot runs entirely in your browser; positions are never sent to a server.
 
 If the CDN is blocked, the app shows an explanatory overlay; it does not fall back to another host or retry silently.
 

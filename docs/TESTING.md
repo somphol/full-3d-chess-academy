@@ -14,16 +14,19 @@ Coverage:
 - **Move generation** — start position 20 moves; perft 20 / 400 / 8,902; Kiwipete 48 / 2,039.
 - **Special rules** — en passant generation, capture removal, SAN, undo; both castles, king/rook placement, SAN, undo; all four promotions, `=Q` SAN, board mutation, undo.
 - **End states** — Fool’s mate, stalemate, threefold repetition by knight shuffle, fifty-move counter, king + bishop insufficient material, Italian-game SAN sequence, rook check suffix.
+- **Bot** — finds the back-rank mate and the free rook, returns a legal move at all three levels, leaves the position untouched, and a Sharp search of a middlegame position finishes inside the 5-second test budget with depth and node counts reported.
 - **Bilingual integrity** — EN/TH dictionaries have identical key sets; every `data-i18n`, `data-i18n-attr` and dynamic `t()` key exists.
 - **Markup integrity** — required ids exist, no duplicate ids, stylesheet and module links, pinned Three.js, import map, drill JSON.
 - **Drills** — three unique drills, bilingual copy, FEN parses, side to move matches, the side not to move is not in check, the UCI solution is legal, SAN matches, promised mates are mate, board restores after undo.
 - **Release integrity** — required documents exist, relative Markdown links resolve, `.nojekyll` is empty, `state.json` parses and records elapsed time, tokens and credits.
 
-Current result: **all checks pass** (see the console output for the exact count; the suite prints `N checks passed, 0 failed`).
+Current result: **84 checks passed, 0 failed**.
 
 ## Headless browser pass (not shipped)
 
-A local harness drove Chrome through the DevTools Protocol with Node’s built-in WebSocket. It is not committed because it depends on a local Chrome path and a temporary HTTP server. It performed **54 interaction checks**:
+A local harness drove Chrome through the DevTools Protocol with Node’s built-in WebSocket. It is not committed because it depends on a local Chrome path and a temporary HTTP server. It performed **97 interaction checks** across two passes.
+
+### Core pass — 54 checks
 
 - Boot: 32 meshes, 3 drills, canvas sized, loading veil dismissed, zero console errors/exceptions.
 - Selection: click e2, two legal moves, inspector visible; click e4 commits SAN `e4`; turn passes.
@@ -39,7 +42,20 @@ A local harness drove Chrome through the DevTools Protocol with Node’s built-i
 - Reload: the saved game is replayed from localStorage with the same SAN.
 - Responsive: 390 × 844 has no horizontal overflow.
 
-Screenshots from that pass are in `assets/`.
+### Opponent and language pass — 43 checks
+
+- English is the default and `document.body.innerText` contains **no Thai** on load, after a move, in the blunder dialog and after switching back from Thai.
+- The secondary-language switch is off by default; the blunder dialog’s second-language line computes to `display: none`.
+- Bot mode enables from the Opponent card; settings, level badge and side controls update.
+- Playing White: e4, thinking badge appears, bot replies, turn returns, SAN appears in the move list.
+- Undo removes both the bot reply and the human move and returns the turn.
+- Switching to Black starts a fresh game; the bot opens; undo is refused before the human has moved.
+- Black’s move is accepted and the bot replies; bot mode, side and saved moves survive a reload.
+- Thai mode shows Thai, English mode hides it again; bot copy follows the language.
+- The optional study switch reveals Thai when enabled and hides it when off.
+- Mobile 390 × 844 has no horizontal overflow; zero console errors/exceptions.
+
+Screenshots from both passes are in `assets/`.
 
 ## Manual matrix
 
@@ -61,6 +77,8 @@ Screenshots from that pass are in `assets/`.
 - The board is not operable by keyboard; buttons, tabs, language, camera and shortcuts are.
 - No screen-reader representation of the position beyond the move list and status announcements.
 - Puzzle checks are single-move by design.
+- The bot is not strength-tested against an external engine or a rating pool; the checks prove legality, tactics and time bounds, not playing strength.
+- Bot search runs on the main thread, so a Sharp search can pause animation for up to ~1.4 s. The thinking badge is painted before the search begins.
 - Sound was verified by code path and manual listening, not by waveform assertions.
 
 ## Reproducing the browser pass

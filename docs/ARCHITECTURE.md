@@ -31,6 +31,23 @@ Key functions:
 
 Positions are recorded as a FEN-like key (placement + turn + castling + en passant) on every move and popped on undo, which makes threefold detection a count over `state.positions`.
 
+Search and SAN call `applyMove(state, move, false)` so they skip the position-key bookkeeping; the game commit uses the default `true`. This is why the bot can search thousands of nodes without corrupting threefold history.
+
+## The bot
+
+The opponent lives inside the engine block so the verification suite can call it directly:
+
+```js
+chooseBotMove(state, 'club', rng) -> { move, score, depth, nodes, elapsedMs, random }
+```
+
+- **Evaluation** — centipawn material plus piece-square tables (separate king table in simplified endgames), a small bishop-pair bonus, and a side-to-move perspective for negamax.
+- **Search** — negamax with alpha-beta, MVV-LVA/centre move ordering, quiescence for captures and checks, a previous-depth best-move first ordering, and iterative deepening inside a wall-clock deadline.
+- **Levels** — `easy`: 1 ply, 42% random, 320 ms · `club`: 3 ply, 4% random, 900 ms · `sharp`: 4 ply, no random, 1.4 s. If the deadline lands mid-depth, the last completed depth is used.
+- **Safety** — a sentinel throw cancels a timed-out search; apply/undo always run in pairs; `chooseBotMove` leaves the position untouched (asserted by the suite).
+
+`scheduleBotTurn` sets `UI.botThinking`, paints the status badge, waits one animation frame, runs the search, then commits through `commitGameMove(move, { byAI: true })`. The AI path skips the blunder guard, but it uses the same SAN, animation, sound, status and persistence code as a human move. A token cancels a pending search when the user undoes, starts a new game, switches sides, or opens a modal. The bot is not allowed to move while any modal is open; closing the modal re-queues it.
+
 ## Rendering
 
 - `WebGLRenderer` with `alpha: true`, ACES filmic tone mapping, PCF soft shadows and `SRGBColorSpace`.
@@ -66,8 +83,9 @@ Puzzles keep their own state; entering a drill does not touch the saved game. A 
 
 ```js
 localStorage['full3dChessAcademy.v1'] = {
-  v: 1, lang, sound, tips, guard, coords, motion,
-  game: { startFen, moves: ['e2e4', 'e7e5', 'g1f3', 'g8f6', 'f1c4', 'e1g1'] }
+  v: 2, lang, sound, tips, guard, coords, motion,
+  vsBot: false, botLevel: 'club', humanColor: 'w',
+  game: { startFen, moves: ['e2e4', 'e7e5', 'g1f3', 'g8f6', 'f1c4', 'e1g1'] },
   puzzles: { solved: ['back-rank'], streak: 4, best: 7 }
 }
 ```
@@ -78,10 +96,11 @@ Moves are stored in UCI (`from` + `to` + optional lowercase promotion). On boot 
 
 `I18N.en` and `I18N.th` hold interface strings only. Lessons, piece rules, coach tips and drill copy are bilingual objects in their own structures so they can be edited together. Static markup uses `data-i18n`, with `data-i18n-attr="aria-label:key"` for attributes. Dynamic text goes through `t(key, vars)`.
 
-The coach always renders the active language first and the other language as a secondary line. The “Bilingual tips” switch hides that line; it never changes the primary language. Chess notation and FEN remain language-neutral.
+**The selected language is the only visible language by default.** English mode must not show Thai in any panel, coach tip, dialog, drill explanation or game-over copy. `UI.tips` is off by default (and older stores are migrated off); the optional “Show the other language” switch adds a secondary line to coach and modal copy but never replaces the primary. The `body.hide-alt-tips` class and the `.modal-sub-alt` rule enforce this. Chess notation and FEN remain language-neutral.
 
 ## Extending it
 
+- **Bot tuning:** `AI_LEVELS` controls depth, time, randomness and quiescence; `PST` controls positional play. Keep the engine pure and re-run the bot checks plus a live browser move after any change.
 - **New lesson/tip:** add to `LESSONS` or `COACH_TIPS` with `{ en, th }`; no key registration needed.
 - **New drill:** append to `#puzzle-data` with a legal FEN, `side`, UCI, SAN, bilingual hint/explanation. Run `node scripts/check.mjs`; it proves legality, SAN and mate claims.
 - **New piece set:** replace `buildPiece` templates; keep the root group's `userData.isPiece`, `type`, `color`, `square` and `baseRot`, and keep the base at `y = 0`.

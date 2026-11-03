@@ -4,7 +4,7 @@
 [![Live studio](https://img.shields.io/badge/live-somphol.github.io%2Ffull--3d--chess--academy-5fe3cb)](https://somphol.github.io/full-3d-chess-academy/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-e7c778)](LICENSE)
 
-A complete, interactive 3D chess studio in the browser. Play a full game of standard international chess on a rotatable, softly lit board, inspect every piece in three dimensions, and learn with a bilingual coach, a blunder guard, and three tactical drills.
+A complete, interactive 3D chess studio in the browser. Play a full game against the built-in bot or a friend, inspect every piece in three dimensions, and learn with a bilingual coach, a blunder guard, and three tactical drills.
 
 No framework, no backend, no build step, no tracking. One HTML page, one stylesheet, one ES module, Three.js from a pinned CDN.
 
@@ -19,6 +19,18 @@ No framework, no backend, no build step, no tracking. One HTML page, one stylesh
 - Legal targets are teal, captures are red, castling is gold, the last move is amber, and a checked king glows red.
 - Undo any move. Export the game as PGN or a full JSON progress file at any time.
 
+### Play the bot
+
+Switch the Opponent card to **The bot**, choose White or Black, and pick a strength:
+
+| Level | Search | Feel |
+| --- | --- | --- |
+| **Casual** | 1 ply + captures, 42% random | Makes beginner-style choices and occasional slips |
+| **Club** | 3 ply + quiescence | Punishes free material and simple mates |
+| **Sharp** | 4 ply + quiescence, 1.4 s cap | Looks a few moves ahead and defends carefully |
+
+The bot runs entirely in the page. It shows a *thinking* badge, then moves with the same animation, sound and move-list entry as a human. Undo takes back both the bot's reply and your move, returning the turn to you. If you play Black, the bot opens as White. A move that hangs material still triggers the blunder guard; the bot waits until you choose **Keep** or **Undo & learn**.
+
 ### Learn in three dimensions
 - **Inspect any piece.** It lifts, sways, and a card shows its value, square and movement rules. Its paths are projected across the board as arcs and landing markers.
 - **Live coach.** Bilingual tips react to checks, hanging pieces, development, the centre and the endgame, with a short “what to check now” list.
@@ -27,8 +39,9 @@ No framework, no backend, no build step, no tracking. One HTML page, one stylesh
 
 ![Inspecting a pawn](assets/inspector.png)
 
-### Bilingual by design
-Every control, lesson, tip, drill and modal switches instantly between English and ไทย. The coach keeps a second-language line under the active tip, so learners can compare wording. Chess notation stays in algebraic form in both languages.
+### Bilingual by design — one language at a time
+
+Every control, lesson, tip, drill and modal switches instantly between English and ไทย. **English mode shows no Thai, and Thai mode shows no English**: the selected language is the only one rendered in the interface, coach, dialogs and drill explanations. A separate **Show the other language** switch is off by default and, when enabled, adds a second-language line under coach tips and dialog copy for comparison. Chess notation stays in algebraic form in both languages.
 
 ![Thai interface](assets/thai.png)
 
@@ -62,6 +75,7 @@ The same folder deploys unchanged to GitHub Pages, Netlify, Cloudflare Pages or 
 | Inspect lens | Dock button | `I` |
 | Switch language | EN / TH | `L` |
 | Camera presets | White / Black / Top / Studio | `1` `2` `3` |
+| Opponent / side / strength | Opponent card | — |
 | Deselect / close | — | `Esc` |
 | Help | Header `?` | `?` |
 
@@ -96,7 +110,7 @@ node --check script.js
 node scripts/check.mjs
 ```
 
-The suite checks perft to depth 3, Kiwipete to depth 2, every special rule, SAN, draws, all drill positions, bilingual key symmetry, referenced element ids, CDN pinning, release documents and the state file. A separate headless-Chrome pass exercised 54 interaction points — selection, moves, captures, castling, promotion, mate, guard, undo, language, drills, reload persistence and a 390 px viewport. The browser harness is not shipped because it depends on a local Chrome path; the manual matrix and method are documented in [docs/TESTING.md](docs/TESTING.md).
+The suite checks perft to depth 3, Kiwipete to depth 2, every special rule, SAN, draws, all drill positions, the bot's mate/capture/legality and state safety, bilingual key symmetry, English-only defaults, referenced element ids, CDN pinning, release documents and the state file. Two headless-Chrome passes exercised 97 interaction points: 54 for the core game (selection, moves, captures, castling, promotion, mate, guard, undo, language, drills, reload, mobile) and 43 for the opponent (thinking state, replies, undo pairs, playing Black, persistence) and for the English-only guarantee. The browser harness is not shipped because it depends on a local Chrome path; the manual matrix and method are documented in [docs/TESTING.md](docs/TESTING.md).
 
 ## Privacy
 

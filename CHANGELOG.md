@@ -2,6 +2,22 @@
 
 All notable changes to Full 3D Chess Academy & Studio are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] — 2026-11-02
+
+### Added
+
+- **Built-in bot opponent** with three strengths (Casual, Club, Sharp), side selection, a thinking badge, bot replies animated through the normal move pipeline, and undo that removes both the bot's reply and your move. The bot plays Black or White and can be restored mid-game after a reload.
+- **Bot search** — negamax with alpha-beta, quiescence, MVV-LVA and centre move ordering, piece-square evaluation, bishop-pair bonus, iterative deepening and a wall-clock cap. Pure and inside the engine test boundary.
+- **Opponent card** — two-player/bot switch, play as White or Black, strength selector, “Start vs bot”, and a status line. Bot settings persist.
+- **Language isolation** — English mode now shows no Thai and Thai mode shows no English. The second-language study line is an explicit, off-by-default switch (`Show the other language`); older stored preferences migrate to off.
+- Verification: bot tests for mate, free captures, legality, state safety and time budget; a 37-check browser pass for the opponent and language isolation.
+
+### Changed
+
+- Version bumped to 1.1.0.
+- Coach and dialog copy now default to a single language.
+- New confirmation dialogs adapt their copy to the bot settings.
+
 ## [1.0.0] — 2026-11-02
 
 First complete release: a playable 3D studio with a full rules engine and a bilingual teaching layer.

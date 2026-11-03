@@ -51,6 +51,12 @@ Each piece is a composite of primitives with a shared base profile, so the set f
 
 Materials use clearcoat and a room environment probe; the ivory catches a warm highlight, the obsidian picks up the blue rim. Shadows are soft and grounded by a dark circular floor.
 
+## The opponent
+
+The Opponent card is deliberately quiet: a two-state switch, a side choice, three strengths and a short status line. It sits above the camera so it reads as part of the match, not as a separate game mode. When the bot is on, the badge names the strength, the match note says “You are White · Club bot”, and a teal thinking badge appears in the stage while the search runs. During that moment the board accepts no input, which prevents accidental moves against a half-played reply.
+
+Three strengths are labelled by feel rather than by rating: Casual, Club and Sharp. The bot is presented as a training partner, never as a rated engine. Undo is worded as taking back “both its reply and your move”, because that is the useful unit for a learner.
+
 ## Teaching system
 
 The coach is written as a patient club player, not a warning system:
@@ -63,7 +69,9 @@ The coach is written as a patient club player, not a warning system:
 
 ## Bilingual typography
 
-Thai text is set in the system Thai stack with a taller line height and slightly reduced tracking for uppercase eyebrow labels. The interface switches immediately: every static label has a translation, every dynamic string goes through `t()`, and lesson/puzzle content carries both languages in data. The coach keeps the other language visible as a dim secondary line; “Bilingual tips” hides it for learners who want a single language.
+Thai text is set in the system Thai stack with a taller line height and slightly reduced tracking for uppercase eyebrow labels. The interface switches immediately: every static label has a translation, every dynamic string goes through `t()`, and lesson/puzzle content carries both languages in data.
+
+**Only the selected language is shown by default.** English mode renders no Thai — not in the coach, not in dialogs, not in drill explanations. Thai mode is equally exclusive. The optional “Show the other language” switch adds a dim secondary line for comparison; it is off on first run and for migrated sessions. The switch is a study aid, not the default reading experience.
 
 ## Motion
 

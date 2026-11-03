@@ -413,7 +413,8 @@ button { cursor: pointer; }
   padding-top: 7px;
   min-height: 0;
 }
-body.hide-alt-tips .coach-tip-alt { display: none; }
+body.hide-alt-tips .coach-tip-alt,
+body.hide-alt-tips .modal-sub-alt { display: none !important; }
 
 .ghost-btn {
   border: 1px solid var(--line);
@@ -748,6 +749,20 @@ body.hide-alt-tips .coach-tip-alt { display: none; }
   50% { box-shadow: 0 0 0 6px rgba(255, 125, 125, 0); }
 }
 .badge-good { color: var(--teal); border-color: rgba(95, 227, 203, 0.4); background: rgba(10, 38, 36, 0.6); }
+.badge-live {
+  color: var(--teal);
+  border-color: rgba(95, 227, 203, 0.38);
+  background: rgba(10, 38, 36, 0.72);
+}
+.badge-live::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--teal);
+  box-shadow: 0 0 8px rgba(95, 227, 203, 0.8);
+  animation: pulse 1.6s infinite;
+}
 
 .chip-btn {
   display: inline-flex;
@@ -1057,6 +1072,14 @@ body.hide-alt-tips .coach-tip-alt { display: none; }
 }
 
 .cam-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.cam-grid-3 { grid-template-columns: repeat(3, 1fr); }
+.cam-grid-3 .seg-btn { font-size: 10px; padding-inline: 4px; }
+
+.bot-settings { display: flex; flex-direction: column; gap: 5px; margin-top: 10px; }
+.bot-label { margin: 5px 0 0; font-size: 9.5px; letter-spacing: 0.7px; text-transform: uppercase; color: var(--muted-2); }
+.bot-start { width: 100%; margin-top: 8px; }
+.bot-note { margin-top: 3px; min-height: 30px; font-size: 10.5px; line-height: 1.5; color: var(--muted); }
+#bot-badge { text-transform: none; letter-spacing: 0; font-size: 10px; }
 .seg-btn {
   padding: 7px 8px;
   border-radius: 8px;
