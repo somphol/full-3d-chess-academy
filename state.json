@@ -1,0 +1,100 @@
+{
+  "project": "Full 3D Chess Academy & Studio",
+  "release": "1.0.0",
+  "ruleset": "Standard international (Western) chess — pawn double-step, en passant, castling, promotion, check, checkmate, stalemate, fifty-move, threefold repetition and insufficient material. Not Thai chess (Makruk); Thai is only an interface language.",
+  "session": {
+    "id": "ses_e60477afeffeglP1nmaw6Jrfas",
+    "startedAt": "2026-11-03T04:43:52Z",
+    "capturedAt": "2026-11-03T05:12:33Z",
+    "elapsedSeconds": 1713,
+    "elapsed": "28m 33s",
+    "note": "Wall-clock time from the OpenCode session's creation to the capture that produced this file: a complete game (engine, renderer, academy, audio, persistence), repository, verification suite and release documentation. Deployment fields are updated after the GitHub Pages check."
+  },
+  "model": {
+    "name": "DeepSeek V4.1 Flash",
+    "id": "deepseek-v4.1-flash",
+    "provider": "opencode-go"
+  },
+  "usage": {
+    "inputTokens": 237005,
+    "outputTokens": 105329,
+    "reasoningTokens": 80362,
+    "cacheReadTokens": 13094912,
+    "cacheWriteTokens": 1379,
+    "totalTokens": 13518987,
+    "costUSD": 0.0,
+    "note": "Read from the OpenCode session database (session_v2) at capture time. totalTokens sums all five counters; cache reads are repeated prompt context and dominate the figure. costUSD is 0 on the flat-rate plan."
+  },
+  "artifacts": {
+    "sourceFiles": ["index.html", "style.css", "script.js"],
+    "lineCounts": {
+      "index.html": 516,
+      "style.css": 1301,
+      "script.js": 3717,
+      "total": 5534
+    },
+    "supportingFiles": [
+      "README.md",
+      "AGENTS.md",
+      "CHANGELOG.md",
+      "LICENSE",
+      "state.json",
+      "THIRD_PARTY_NOTICES.md",
+      "docs/ARCHITECTURE.md",
+      "docs/DESIGN.md",
+      "docs/TESTING.md",
+      "docs/DEPLOYMENT.md",
+      "docs/PUZZLES.md",
+      "docs/PRIVACY.md",
+      "scripts/check.mjs",
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      ".editorconfig",
+      ".nojekyll",
+      "assets/studio.png",
+      "assets/inspector.png",
+      "assets/drills.png",
+      "assets/thai.png",
+      "assets/og-card.png"
+    ]
+  },
+  "verification": {
+    "method": "Dependency-free Node suite plus headless Chrome over the DevTools Protocol",
+    "automatedChecks": 77,
+    "browserChecks": 54,
+    "checks": [
+      "Perft start position depths 1–3: 20 / 400 / 8,902",
+      "Kiwipete depths 1–2: 48 / 2,039",
+      "En passant, both castles, all four promotions, and their undos",
+      "Fool's mate, stalemate, threefold repetition, fifty-move and insufficient material",
+      "SAN: Italian sequence, disambiguation, castling, promotion and check suffix",
+      "All three drills: legal FEN, side not to move safe, legal UCI, SAN match, mate proof, board restore",
+      "English/Thai dictionaries symmetric; every static and dynamic translation key exists",
+      "All element ids referenced by the script exist; no duplicate ids; Three.js pinned; import map present",
+      "Release documents present, relative Markdown links resolve, state.json shape valid",
+      "Browser: 32 meshes, 3 drills, canvas sizing, loading dismissal, zero console errors",
+      "Browser: select e2, legal rings, inspector, play e4, undo, language switch",
+      "Browser: drill solve and streak, capture tray and material, promotion modal, new-game confirm",
+      "Browser: blunder guard explanation and undo, castling king/rook meshes, checkmate end modal",
+      "Browser: reload restores the saved game, 390 x 844 has no horizontal overflow"
+    ],
+    "consoleErrors": 0
+  },
+  "deployment": {
+    "repository": "https://github.com/somphol/full-3d-chess-academy",
+    "pages": "https://somphol.github.io/full-3d-chess-academy/",
+    "host": "GitHub Pages",
+    "branch": "main",
+    "path": "/",
+    "verifiedAt": null,
+    "status": "pending"
+  },
+  "credits": {
+    "tool": "OpenCode",
+    "toolURL": "https://opencode.ai",
+    "model": "DeepSeek V4.1 Flash",
+    "modelID": "opencode-go/deepseek-v4.1-flash",
+    "engine": "Three.js 0.169.0 (MIT)",
+    "license": "MIT"
+  }
+}

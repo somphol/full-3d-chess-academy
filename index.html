@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Full 3D Chess Academy &amp; Studio</title>
+  <meta name="description" content="A bilingual 3D chess academy and studio: play standard chess in a rotatable WebGL studio, inspect pieces, drill puzzles and learn with a real-time coach. No backend, no tracking." />
+  <meta name="theme-color" content="#0b0e14" />
+  <meta name="color-scheme" content="dark" />
+  <meta property="og:title" content="Full 3D Chess Academy &amp; Studio" />
+  <meta property="og:description" content="Play and learn standard chess in a fully 3D, bilingual academy studio. Vanilla JS + Three.js, deployable to GitHub Pages." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="assets/og-card.png" />
+  <meta property="og:url" content="https://somphol.github.io/full-3d-chess-academy/" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Full 3D Chess Academy &amp; Studio" />
+  <meta name="twitter:description" content="Play and learn standard chess in a fully 3D, bilingual academy studio." />
+  <meta name="twitter:image" content="assets/og-card.png" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0e14'/%3E%3Cpath d='M20 50h26v5H20z' fill='%23e7c778'/%3E%3Cpath d='M25 44c2-8 4-12 3-18l-4-2 6-9c5 2 9 7 10 13 1 5-1 8 4 12l-3 5z' fill='%23f4ead6'/%3E%3Ccircle cx='30' cy='22' r='2' fill='%230b0e14'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="stylesheet" href="style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <svg class="sprite" aria-hidden="true" focusable="false">
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 7H5v-4M5.6 7.2A8 8 0 1 1 4 14" /></symbol>
+    <symbol id="i-reset" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" /></symbol>
+    <symbol id="i-lens" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m15.5 15.5 5 5" /></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><circle cx="12" cy="12.5" r="3.5" /></symbol>
+    <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4zM17 9.5a4 4 0 0 1 0 5M19.5 7a7 7 0 0 1 0 10" /></symbol>
+    <symbol id="i-mute" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4zM17 9l5 6M22 9l-5 6" /></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M9.6 9a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1.1 1-1.1 1.7v.5M12 17h.01" /></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></symbol>
+    <symbol id="i-coach" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z" /><path d="M8 9h8M8 12h5" /></symbol>
+    <symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M10 4a2 2 0 0 1 4 0v2h3v4a2 2 0 1 0 0 4v4h-4a2 2 0 1 1-4 0H5v-4a2 2 0 1 0 0-4V6h5z" /></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 20h14" /></symbol>
+    <symbol id="i-chess" viewBox="0 0 24 24"><path d="M7 21h10M8 18h8l-1-4c2-2 2-4 1-6l-2-1 3-3c-3-1-6 .5-8 3-1 2-1 4 1 5l-1 6z" /></symbol>
+    <symbol id="i-board" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M9 3v18M15 3v18M3 9h18M3 15h18" /></symbol>
+  </svg>
+
+  <div class="app" id="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"><span>♞</span></div>
+        <div class="brand-text">
+          <h1>Full 3D Chess <em>Academy &amp; Studio</em></h1>
+          <p data-i18n="brand.tagline">Rotate the studio. Learn the game. Play a full game of chess.</p>
+        </div>
+      </div>
+
+      <div class="topbar-center">
+        <div class="turn-pill" id="turn-pill">
+          <span class="turn-dot" id="turn-dot" aria-hidden="true"></span>
+          <span id="turn-label" aria-live="polite">White to move</span>
+        </div>
+        <div class="chip" id="status-chip" data-tone="idle" aria-live="polite">Ready</div>
+      </div>
+
+      <div class="topbar-actions">
+        <div class="lang-switch" role="group" aria-label="Language / ภาษา">
+          <button type="button" class="lang-btn" data-lang="en">EN</button>
+          <button type="button" class="lang-btn" data-lang="th">TH</button>
+        </div>
+        <button type="button" class="icon-btn" id="btn-sound" aria-pressed="true" data-i18n-attr="aria-label:ui.sound">
+          <svg class="icon" aria-hidden="true"><use href="#i-sound" id="sound-use"></use></svg>
+        </button>
+        <button type="button" class="icon-btn" id="btn-help" data-i18n-attr="aria-label:ui.help" title="Help (?)">
+          <svg class="icon" aria-hidden="true"><use href="#i-help"></use></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="rail rail-left" id="rail-left" aria-label="Academy">
+        <div class="tabs" role="tablist" aria-label="Academy sections">
+          <button type="button" class="tab is-active" role="tab" aria-selected="true" aria-controls="panel-coach" id="tab-coach" data-tab="coach">
+            <svg class="icon" aria-hidden="true"><use href="#i-coach"></use></svg><span data-i18n="tabs.coach">Coach</span>
+          </button>
+          <button type="button" class="tab" role="tab" aria-selected="false" aria-controls="panel-puzzles" id="tab-puzzles" data-tab="puzzles">
+            <svg class="icon" aria-hidden="true"><use href="#i-puzzle"></use></svg><span data-i18n="tabs.puzzles">Puzzles</span>
+          </button>
+          <button type="button" class="tab" role="tab" aria-selected="false" aria-controls="panel-moves" id="tab-moves" data-tab="moves">
+            <svg class="icon" aria-hidden="true"><use href="#i-list"></use></svg><span data-i18n="tabs.moves">Moves</span>
+          </button>
+        </div>
+
+        <div class="panel-stack">
+          <section class="panel is-active" id="panel-coach" role="tabpanel" aria-labelledby="tab-coach">
+            <div class="coach-card">
+              <div class="coach-head">
+                <span class="eyebrow"><span class="pulse-dot" aria-hidden="true"></span><span data-i18n="coach.live">Live coaching</span></span>
+                <button type="button" class="ghost-btn ghost-btn-sm" id="btn-coach-refresh" data-i18n="coach.refresh">Refresh</button>
+              </div>
+              <p class="coach-tip" id="coach-tip-primary" lang="en">Welcome to the studio. Click any piece to inspect it.</p>
+              <p class="coach-tip coach-tip-alt" id="coach-tip-secondary" lang="th">ยินดีต้อนรับสู่สตูดิโอ คลิกหมากตัวใดก็ได้เพื่อตรวจดู</p>
+            </div>
+
+            <div class="section-block">
+              <h2 class="section-title" data-i18n="coach.checks">What to check now</h2>
+              <ul class="check-list" id="coach-checklist"></ul>
+            </div>
+
+            <div class="section-block">
+              <h2 class="section-title" data-i18n="coach.lesson">Current lesson</h2>
+              <div class="lesson-card">
+                <div class="lesson-glyph" id="lesson-glyph" aria-hidden="true">♟</div>
+                <div>
+                  <p class="lesson-name" id="lesson-name">The centre</p>
+                  <p class="lesson-body" id="lesson-body">Squares e4, d4, e5 and d5 are the high ground. A piece in the centre reaches more of the board.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="section-block">
+              <h2 class="section-title" data-i18n="coach.guard">Blunder guard</h2>
+              <label class="switch-row" for="toggle-guard">
+                <span>
+                  <span class="switch-title" data-i18n="coach.guardTitle">Warn me before a blunder</span>
+                  <span class="switch-sub" data-i18n="coach.guardSub">Offers Undo &amp; Learn after a hanging piece or mate-in-one.</span>
+                </span>
+                <input type="checkbox" id="toggle-guard" class="switch" checked />
+              </label>
+              <label class="switch-row" for="toggle-tips">
+                <span>
+                  <span class="switch-title" data-i18n="coach.tipsTitle">Bilingual tips</span>
+                  <span class="switch-sub" data-i18n="coach.tipsSub">Show the second language under each tip.</span>
+                </span>
+                <input type="checkbox" id="toggle-tips" class="switch" checked />
+              </label>
+            </div>
+          </section>
+
+          <section class="panel" id="panel-puzzles" role="tabpanel" aria-labelledby="tab-puzzles" hidden>
+            <div class="puzzle-head">
+              <div>
+                <span class="eyebrow" data-i18n="puzzle.training">Tactical drills</span>
+                <p class="puzzle-stats">
+                  <span><strong id="puzzle-solved">0</strong>/<span id="puzzle-total">3</span> <span data-i18n="puzzle.solvedLabel">solved</span></span>
+                  <span class="dot-sep" aria-hidden="true">·</span>
+                  <span><span data-i18n="puzzle.streak">Streak</span> <strong id="puzzle-streak">0</strong></span>
+                  <span class="dot-sep" aria-hidden="true">·</span>
+                  <span><span data-i18n="puzzle.best">Best</span> <strong id="puzzle-best">0</strong></span>
+                </p>
+              </div>
+              <div class="ring-meter" id="puzzle-meter" aria-hidden="true"><span>0%</span></div>
+            </div>
+
+            <div class="puzzle-list" id="puzzle-list"></div>
+
+            <div class="puzzle-actions">
+              <button type="button" class="btn btn-soft" id="btn-puzzle-hint"><span data-i18n="puzzle.hint">Hint</span></button>
+              <button type="button" class="btn btn-soft" id="btn-puzzle-retry"><span data-i18n="puzzle.retry">Reset drill</span></button>
+              <button type="button" class="btn btn-soft" id="btn-puzzle-exit" hidden><span data-i18n="puzzle.exit">Exit drill</span></button>
+            </div>
+            <p class="mini-note" id="puzzle-status" aria-live="polite" data-i18n="puzzle.pick">Pick a drill to load it onto the 3D board.</p>
+          </section>
+
+          <section class="panel" id="panel-moves" role="tabpanel" aria-labelledby="tab-moves" hidden>
+            <div class="section-block section-block-tight">
+              <div class="row-between">
+                <h2 class="section-title" data-i18n="moves.title">Move list</h2>
+                <span class="count-badge" id="move-count">0</span>
+              </div>
+              <div class="move-table-wrap">
+                <table class="move-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">#</th>
+                      <th scope="col" data-i18n="moves.white">White</th>
+                      <th scope="col" data-i18n="moves.black">Black</th>
+                    </tr>
+                  </thead>
+                  <tbody id="move-list"></tbody>
+                </table>
+                <p class="empty-note" id="move-empty" data-i18n="moves.empty">No moves yet. White begins.</p>
+              </div>
+            </div>
+
+            <div class="section-block">
+              <h2 class="section-title" data-i18n="moves.captured">Captured material</h2>
+              <div class="captured-row"><span class="captured-label" data-i18n="moves.byWhite">White took</span><div class="captured-set" id="captured-by-white"><span class="empty-note" data-i18n="moves.none">Nothing yet</span></div></div>
+              <div class="captured-row"><span class="captured-label" data-i18n="moves.byBlack">Black took</span><div class="captured-set" id="captured-by-black"><span class="empty-note" data-i18n="moves.none">Nothing yet</span></div></div>
+            </div>
+
+            <div class="section-block">
+              <h2 class="section-title" data-i18n="moves.saved">Saved game</h2>
+              <p class="mini-note" data-i18n="moves.savedNote">Your game is saved in this browser automatically. Export it before clearing browser data.</p>
+              <div class="export-row">
+                <button type="button" class="btn btn-soft" id="btn-export-pgn"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg><span>PGN</span></button>
+                <button type="button" class="btn btn-soft" id="btn-export-json"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg><span>JSON</span></button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </aside>
+
+      <section class="stage" id="stage" aria-label="3D chess board">
+        <canvas id="board-canvas" aria-label="Interactive three dimensional chess board" role="img"></canvas>
+
+        <div class="stage-top">
+          <div class="stage-badges">
+            <span class="badge" id="stage-mode" data-i18n="stage.play">Play mode</span>
+            <span class="badge badge-quiet" id="stage-turn">White to move</span>
+            <span class="badge badge-warn" id="stage-check" hidden data-i18n="stage.check">Check</span>
+          </div>
+          <div class="stage-corner">
+            <button type="button" class="chip-btn" id="btn-cam-cycle" title="Cycle camera">
+              <svg class="icon" aria-hidden="true"><use href="#i-camera"></use></svg>
+              <span id="cam-label" data-i18n="camera.white">White view</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="stage-bottom">
+          <div class="legend" id="stage-legend">
+            <span><strong data-i18n="stage.drag">Drag</strong> <span data-i18n="stage.orbit">orbit</span></span>
+            <span><strong data-i18n="stage.scroll">Scroll</strong> <span data-i18n="stage.zoom">zoom</span></span>
+            <span><strong data-i18n="stage.rightDrag">Right-drag</strong> <span data-i18n="stage.pan">pan</span></span>
+            <span><strong data-i18n="stage.click">Click</strong> <span data-i18n="stage.select">select</span></span>
+          </div>
+          <div class="dock" role="toolbar" aria-label="Game actions">
+            <button type="button" class="dock-btn" id="btn-new"><svg class="icon" aria-hidden="true"><use href="#i-reset"></use></svg><span data-i18n="action.new">New game</span></button>
+            <button type="button" class="dock-btn" id="btn-undo"><svg class="icon" aria-hidden="true"><use href="#i-undo"></use></svg><span data-i18n="action.undo">Undo</span></button>
+            <button type="button" class="dock-btn" id="btn-inspect" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-lens"></use></svg><span data-i18n="action.inspect">Inspect</span></button>
+            <button type="button" class="dock-btn" id="btn-hint"><svg class="icon" aria-hidden="true"><use href="#i-coach"></use></svg><span data-i18n="action.hint">Hint</span></button>
+          </div>
+        </div>
+
+        <div class="inspector" id="inspector" hidden>
+          <button type="button" class="inspector-close" id="inspector-close" data-i18n-attr="aria-label:ui.close">
+            <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+          </button>
+          <div class="inspector-head">
+            <div class="inspector-glyph" id="inspector-glyph" aria-hidden="true">♞</div>
+            <div>
+              <p class="eyebrow" id="inspector-color">White</p>
+              <h2 class="inspector-name" id="inspector-name">Knight</h2>
+              <p class="inspector-meta" id="inspector-meta">on g1 · 3 points</p>
+            </div>
+          </div>
+          <div class="inspector-body">
+            <p class="inspector-rules" id="inspector-rules">The knight jumps in an L: two squares one way, one square across, and may leap over pieces.</p>
+            <div class="inspector-tags" id="inspector-tags"></div>
+          </div>
+          <div class="inspector-foot">
+            <span data-i18n="inspector.paths">Flight paths shown on the board</span>
+          </div>
+        </div>
+
+        <div class="loading" id="loading">
+          <div class="loading-card">
+            <div class="loading-mark" aria-hidden="true">♞</div>
+            <p class="loading-title" data-i18n="loading.title">Preparing the studio</p>
+            <p class="loading-sub" data-i18n="loading.sub">Polishing the board and setting the lights…</p>
+            <div class="loading-bar" aria-hidden="true"><span></span></div>
+          </div>
+        </div>
+
+        <div class="cdn-error" id="cdn-error" hidden>
+          <div>
+            <h2 data-i18n="error.title">The 3D engine could not load</h2>
+            <p data-i18n="error.body">This app fetches Three.js from a CDN. Check your internet connection, then reload. Serving the folder with <code>python3 -m http.server</code> also avoids local file restrictions.</p>
+            <button type="button" class="btn btn-primary" onclick="location.reload()" data-i18n="error.reload">Reload</button>
+          </div>
+        </div>
+
+        <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+      </section>
+
+      <aside class="rail rail-right" id="rail-right" aria-label="Studio panel">
+        <div class="card match-card">
+          <div class="card-head">
+            <h2 data-i18n="match.title">The match</h2>
+            <span class="badge badge-quiet" id="match-moves">0 moves</span>
+          </div>
+          <div class="match-turn">
+            <span class="match-dot" id="match-dot" aria-hidden="true"></span>
+            <div>
+              <p class="match-side" id="match-side">White to move</p>
+              <p class="match-note" id="match-note" data-i18n="match.note">Standard international chess · two players, one screen</p>
+            </div>
+          </div>
+          <div class="material-line">
+            <span data-i18n="match.material">Material</span>
+            <strong id="material-label">Even</strong>
+          </div>
+          <div class="material-dots" id="material-dots" aria-hidden="true"></div>
+          <div class="captured-block">
+            <div><span class="captured-label" data-i18n="moves.byWhite">White took</span><div class="captured-set" id="captured-white"></div></div>
+            <div><span class="captured-label" data-i18n="moves.byBlack">Black took</span><div class="captured-set" id="captured-black"></div></div>
+          </div>
+          <p class="match-reason" id="match-reason" hidden></p>
+        </div>
+
+        <div class="card camera-card">
+          <div class="card-head"><h2 data-i18n="camera.title">Camera</h2></div>
+          <div class="cam-grid">
+            <button type="button" class="seg-btn is-active" data-cam="white" data-i18n="camera.white">White</button>
+            <button type="button" class="seg-btn" data-cam="black" data-i18n="camera.black">Black</button>
+            <button type="button" class="seg-btn" data-cam="top" data-i18n="camera.top">Top</button>
+            <button type="button" class="seg-btn" data-cam="reset" data-i18n="camera.studio">Studio</button>
+          </div>
+          <label class="switch-row switch-row-sm" for="toggle-coords">
+            <span class="switch-title" data-i18n="camera.coords">Board coordinates</span>
+            <input type="checkbox" id="toggle-coords" class="switch" checked />
+          </label>
+          <label class="switch-row switch-row-sm" for="toggle-motion">
+            <span class="switch-title" data-i18n="camera.motion">Gentle idle motion</span>
+            <input type="checkbox" id="toggle-motion" class="switch" checked />
+          </label>
+        </div>
+
+        <div class="card studio-card">
+          <div class="card-head"><h2 data-i18n="studio.title">Studio</h2></div>
+          <p class="mini-note" id="studio-note" data-i18n="studio.note">A self-contained static app. Nothing is uploaded; exports are built locally.</p>
+          <div class="studio-stats">
+            <div><span data-i18n="studio.pieces">Pieces</span><strong>32</strong></div>
+            <div><span data-i18n="studio.squares">Squares</span><strong>64</strong></div>
+            <div><span data-i18n="studio.puzzles">Drills</span><strong id="studio-puzzles">3</strong></div>
+          </div>
+          <div class="export-row">
+            <button type="button" class="btn btn-soft" id="btn-export-pgn-2"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg><span data-i18n="studio.pgn">Export PGN</span></button>
+            <button type="button" class="btn btn-soft" id="btn-export-json-2"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg><span data-i18n="studio.json">Export JSON</span></button>
+          </div>
+        </div>
+
+        <div class="card hint-card">
+          <div class="card-head"><h2 data-i18n="shortcuts.title">Keys</h2></div>
+          <ul class="key-list">
+            <li><kbd>U</kbd><span data-i18n="shortcuts.undo">Undo</span></li>
+            <li><kbd>N</kbd><span data-i18n="shortcuts.new">New game</span></li>
+            <li><kbd>I</kbd><span data-i18n="shortcuts.inspect">Inspect lens</span></li>
+            <li><kbd>L</kbd><span data-i18n="shortcuts.lang">Language</span></li>
+            <li><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><span data-i18n="shortcuts.camera">Camera</span></li>
+            <li><kbd>Esc</kbd><span data-i18n="shortcuts.cancel">Deselect / close</span></li>
+          </ul>
+        </div>
+      </aside>
+    </main>
+
+    <footer class="footbar">
+      <p><span data-i18n="footer.built">Built with</span> <a href="https://threejs.org" target="_blank" rel="noopener">Three.js</a> <span data-i18n="footer.and">and vanilla JavaScript</span> · <a href="https://opencode.ai" target="_blank" rel="noopener">OpenCode</a> · <span id="footer-model">DeepSeek V4.1 Flash</span></p>
+      <p class="foot-version">v1.0.0 · <span data-i18n="footer.license">MIT licensed</span></p>
+    </footer>
+  </div>
+
+  <!-- ===================== Modals ===================== -->
+
+  <div class="modal" id="modal-promotion" hidden>
+    <div class="modal-card modal-card-wide" role="dialog" aria-modal="true" aria-labelledby="promo-title">
+      <p class="eyebrow" data-i18n="promo.eyebrow">Pawn promotion</p>
+      <h2 id="promo-title" data-i18n="promo.title">Choose your new piece</h2>
+      <p class="modal-sub" data-i18n="promo.sub">Your pawn reached the last rank. A queen is strongest, but a knight can fork.</p>
+      <div class="promo-grid">
+        <button type="button" class="promo-btn" data-promo="Q"><span class="promo-glyph">♕</span><span data-i18n="piece.queen">Queen</span><small>9</small></button>
+        <button type="button" class="promo-btn" data-promo="R"><span class="promo-glyph">♖</span><span data-i18n="piece.rook">Rook</span><small>5</small></button>
+        <button type="button" class="promo-btn" data-promo="B"><span class="promo-glyph">♗</span><span data-i18n="piece.bishop">Bishop</span><small>3</small></button>
+        <button type="button" class="promo-btn" data-promo="N"><span class="promo-glyph">♘</span><span data-i18n="piece.knight">Knight</span><small>3</small></button>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-quiet" id="btn-promo-cancel" data-i18n="ui.cancel">Cancel move</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-blunder" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="blunder-title">
+      <div class="modal-icon" aria-hidden="true">⚠</div>
+      <p class="eyebrow" data-i18n="blunder.eyebrow">Blunder guard</p>
+      <h2 id="blunder-title" data-i18n="blunder.title">That move gives something away</h2>
+      <p class="modal-sub" id="blunder-en"></p>
+      <p class="modal-sub modal-sub-alt" id="blunder-th" lang="th"></p>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-primary" id="btn-blunder-undo" data-i18n="blunder.undo">Undo &amp; learn</button>
+        <button type="button" class="btn btn-quiet" id="btn-blunder-keep" data-i18n="blunder.keep">Keep the move</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-gameover" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="gameover-title">
+      <div class="modal-icon" id="gameover-icon" aria-hidden="true">♔</div>
+      <p class="eyebrow" data-i18n="over.eyebrow">Game over</p>
+      <h2 id="gameover-title">Checkmate</h2>
+      <p class="modal-sub" id="gameover-reason"></p>
+      <p class="modal-sub modal-sub-alt" id="gameover-reason-th" lang="th"></p>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-primary" id="btn-gameover-new" data-i18n="over.new">Start a new game</button>
+        <button type="button" class="btn btn-quiet" id="btn-gameover-review" data-i18n="over.review">Review the board</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-puzzle" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="puzzle-modal-title">
+      <div class="modal-icon modal-icon-good" aria-hidden="true">✦</div>
+      <p class="eyebrow" data-i18n="solved.eyebrow">Drill complete</p>
+      <h2 id="puzzle-modal-title" data-i18n="solved.title">Solved!</h2>
+      <p class="modal-sub" id="puzzle-modal-body"></p>
+      <p class="modal-sub modal-sub-alt" id="puzzle-modal-body-th" lang="th"></p>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-primary" id="btn-puzzle-next" data-i18n="solved.next">Next drill</button>
+        <button type="button" class="btn btn-quiet" id="btn-puzzle-close" data-i18n="solved.stay">Stay on this drill</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-confirm" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+      <h2 id="confirm-title" data-i18n="confirm.title">Start a new game?</h2>
+      <p class="modal-sub" id="confirm-body" data-i18n="confirm.body">The current game will be cleared. Export it first if you want to keep the moves.</p>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-primary" id="btn-confirm-yes" data-i18n="confirm.yes">Yes, start fresh</button>
+        <button type="button" class="btn btn-quiet" id="btn-confirm-no" data-i18n="ui.cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-help" hidden>
+    <div class="modal-card modal-card-wide help-card" role="dialog" aria-modal="true" aria-labelledby="help-title">
+      <button type="button" class="inspector-close" id="btn-help-close" data-i18n-attr="aria-label:ui.close">
+        <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+      </button>
+      <p class="eyebrow" data-i18n="help.eyebrow">Academy handbook</p>
+      <h2 id="help-title" data-i18n="help.title">How the studio works</h2>
+      <div class="help-grid">
+        <div>
+          <h3 data-i18n="help.playTitle">Play</h3>
+          <p data-i18n="help.playBody">Click a piece, then a glowing square. Legal moves appear as rings. Drag to orbit, scroll to zoom, right-drag to pan.</p>
+        </div>
+        <div>
+          <h3 data-i18n="help.inspectTitle">Inspect</h3>
+          <p data-i18n="help.inspectBody">Click any piece to lift it, see its value and movement rules, and project its paths across the board.</p>
+        </div>
+        <div>
+          <h3 data-i18n="help.guardTitle">Undo &amp; learn</h3>
+          <p data-i18n="help.guardBody">When the guard spots a hanging piece or a mate-in-one, it explains the threat and offers a clean undo.</p>
+        </div>
+        <div>
+          <h3 data-i18n="help.puzzleTitle">Puzzles</h3>
+          <p data-i18n="help.puzzleBody">Three beginner drills load a position onto the board. Find the move; the coach explains why it works.</p>
+        </div>
+        <div>
+          <h3 data-i18n="help.keysTitle">Keys</h3>
+          <p data-i18n="help.keysBody">U undo · N new game · I inspect lens · L language · 1/2/3 camera · Esc deselect.</p>
+        </div>
+        <div>
+          <h3 data-i18n="help.dataTitle">Your data</h3>
+          <p data-i18n="help.dataBody">Games and streaks live in this browser's localStorage only. Export PGN or JSON any time; nothing is sent anywhere.</p>
+        </div>
+      </div>
+      <div class="credits-block">
+        <p><span data-i18n="help.credit">Built with</span> <a href="https://threejs.org" target="_blank" rel="noopener">Three.js</a>, <span data-i18n="help.creditTool">the OpenCode agent harness</span>, <span data-i18n="help.creditModel">and the DeepSeek V4.1 Flash model</span>.</p>
+        <p class="mini-note" data-i18n="help.offline">Serving over HTTP is recommended. Three.js loads from jsDelivr, so the studio needs a connection the first time.</p>
+      </div>
+    </div>
+  </div>
+
+  <script type="application/json" id="puzzle-data">
+  [
+    {
+      "id": "back-rank",
+      "title": { "en": "Back-rank mate", "th": "รุกจนแถวหลัง" },
+      "goal": { "en": "White to move · mate in one", "th": "ขาวเดิน · รุกจนในหนึ่งตา" },
+      "fen": "6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1",
+      "side": "w",
+      "solution": "Ra8#",
+      "uci": "a1a8",
+      "hint": { "en": "The black king is boxed in by its own pawns. Which square does the rook own?", "th": "ราชาดำถูกปิดล้อมด้วยเบี้ยของตัวเอง เรือควรไปครองช่องไหน?" },
+      "explanation": { "en": "Ra8 is mate: the rook sweeps the whole eighth rank, the king's own pawns block f7, g7 and h7, and no piece can block or capture.", "th": "เรือไป a8 เป็นรุกจน: เรือคุมแถวที่ 8 ทั้งแถว เบี้ยของราชาเองปิด f7 g7 และ h7 ไว้ ไม่มีหมากใดกันหรือกินเรือได้" }
+    },
+    {
+      "id": "queen-kiss",
+      "title": { "en": "The queen's kiss", "th": "ราชินีประกบราชา" },
+      "goal": { "en": "White to move · mate in one", "th": "ขาวเดิน · รุกจนในหนึ่งตา" },
+      "fen": "7k/8/5K2/8/8/8/8/6Q1 w - - 0 1",
+      "side": "w",
+      "solution": "Qg7#",
+      "uci": "g1g7",
+      "hint": { "en": "Bring the queen next to the king. Your own king must protect her.", "th": "นำราชินีไปประชิดราชา โดยที่ราชาของคุณต้องป้องกันเธอไว้" },
+      "explanation": { "en": "Qg7 is mate. The queen covers h8, g8 and h7, and because the white king on f6 guards g7, the black king cannot take her.", "th": "ราชินีไป g7 เป็นรุกจน ราชินีคุม h8 g8 และ h7 และเพราะราชาขาวที่ f6 ป้องกัน g7 ราชาดำจึงกินราชินีไม่ได้" }
+    },
+    {
+      "id": "knight-fork",
+      "title": { "en": "Knight fork", "th": "ม้าสองง่าม" },
+      "goal": { "en": "White to move · win the rook", "th": "ขาวเดิน · ชนะเรือ" },
+      "fen": "2r1k3/8/8/8/4N3/8/8/4K3 w - - 0 1",
+      "side": "w",
+      "solution": "Nd6+",
+      "uci": "e4d6",
+      "hint": { "en": "A knight can attack the king and the rook at the same time. Find the square that touches both.", "th": "ม้าโจมตีราชาและเรือพร้อมกันได้ หาช่องที่แตะทั้งสองตัว" },
+      "explanation": { "en": "Nd6+ forks the king on e8 and the rook on c8. The king must step out of check, then Nxc8 wins the rook.", "th": "ม้าไป d6 เป็นรุกสองง่าม ทั้งราชาที่ e8 และเรือที่ c8 ราชาต้องหนีจากการรุก จากนั้นม้ากินเรือที่ c8" }
+    }
+  ]
+  </script>
+
+  <noscript>
+    <div class="noscript">This studio needs JavaScript and WebGL. Please enable JavaScript and reload.</div>
+  </noscript>
+
+  <script>
+    // If the ES module or the CDN never arrives, surface a clear message instead of a blank studio.
+    window.setTimeout(function () {
+      if (!window.__CHESS_STUDIO_READY__) {
+        var el = document.getElementById('cdn-error');
+        var load = document.getElementById('loading');
+        if (el) el.hidden = false;
+        if (load) load.hidden = true;
+      }
+    }, 12000);
+  </script>
+  <script type="module" src="script.js"></script>
+</body>
+</html>
